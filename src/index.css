@@ -1,0 +1,152 @@
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800;900&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 224 71% 4%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 224 71% 4%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 224 71% 4%;
+
+    --primary: 262 83% 58%;
+    --primary-foreground: 210 40% 98%;
+
+    --secondary: 220 91% 54%;
+    --secondary-foreground: 210 40% 98%;
+
+    --muted: 220 14% 96%;
+    --muted-foreground: 220 8% 46%;
+
+    --accent: 262 83% 58%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 98%;
+
+    --border: 220 13% 91%;
+    --input: 220 13% 91%;
+    --ring: 262 83% 58%;
+
+    --radius: 0.5rem;
+    
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 224 71% 4%;
+    --sidebar-primary: 262 83% 58%;
+    --sidebar-primary-foreground: 210 40% 98%;
+    --sidebar-accent: 220 14% 96%;
+    --sidebar-accent-foreground: 224 71% 4%;
+    --sidebar-border: 220 13% 91%;
+    --sidebar-ring: 262 83% 58%;
+  }
+
+  .dark {
+    --background: 224 71% 4%;
+    --foreground: 210 40% 98%;
+
+    --card: 224 71% 4%;
+    --card-foreground: 210 40% 98%;
+
+    --popover: 224 71% 4%;
+    --popover-foreground: 210 40% 98%;
+
+    --primary: 262 83% 58%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 220 91% 54%;
+    --secondary-foreground: 0 0% 100%;
+
+    --muted: 217 33% 17%;
+    --muted-foreground: 215 20% 65%;
+
+    --accent: 262 83% 68%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 62% 30%;
+    --destructive-foreground: 0 0% 98%;
+
+    --border: 217 33% 17%;
+    --input: 217 33% 17%;
+    --ring: 262 83% 58%;
+    
+    --sidebar-background: 224 71% 10%;
+    --sidebar-foreground: 0 0% 100%;
+    --sidebar-primary: 262 83% 58%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 224 71% 15%;
+    --sidebar-accent-foreground: 0 0% 98%;
+    --sidebar-border: 224 71% 15%;
+    --sidebar-ring: 262 83% 58%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans;
+  }
+}
+
+@layer components {
+  .sweat24-gradient {
+    background: linear-gradient(to right, #A855F7, #7E22CE);
+  }
+  
+  .sweat24-card {
+    @apply bg-white rounded-lg shadow-sm border border-gray-200 p-6;
+    background-color: #FFFFFF;
+    border-color: #E5E7EB;
+  }
+  
+  .sweat24-button-primary {
+    @apply font-medium px-4 py-2 rounded-md transition-colors;
+    background-color: #7C3AED;
+    color: #FFFFFF;
+  }
+  
+  .sweat24-button-primary:hover {
+    background-color: #7E22CE;
+  }
+  
+  .sweat24-button-secondary {
+    @apply font-medium px-4 py-2 rounded-md transition-colors border;
+    background-color: #FFFFFF;
+    border-color: #D8B4FE;
+    color: #7C3AED;
+  }
+  
+  .sweat24-button-secondary:hover {
+    background-color: rgba(233, 213, 255, 0.2);
+    color: #7C3AED;
+  }
+
+  .sweat24-tag-purple {
+    background-color: #E9D5FF;
+    color: #7E22CE;
+    @apply px-2 py-1 rounded-full text-xs font-medium;
+  }
+
+  .sweat24-tag-blue {
+    background-color: #DBEAFE;
+    color: #1D4ED8;
+    @apply px-2 py-1 rounded-full text-xs font-medium;
+  }
+
+  /* ΚΡΙΣΙΜΗ ΔΙΟΡΘΩΣΗ: Ρητή αντικατάσταση τυχόν κίτρινων hover effects */
+  .sidebar-nav-item:hover {
+    background-color: rgba(233, 213, 255, 0.2) !important;
+    color: #7C3AED !important;
+  }
+  
+  .sidebar-nav-item:hover svg {
+    color: #7C3AED !important;
+  }
+}
