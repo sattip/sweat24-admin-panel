@@ -23,9 +23,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { PaymentInstallmentsModal } from "@/components/PaymentInstallmentsModal";
+import { CashRegisterModal } from "@/components/CashRegisterModal";
+import { BusinessExpenseModal } from "@/components/BusinessExpenseModal";
 import {
   Euro,
   TrendingUp,
+  TrendingDown,
   Calendar,
   Users,
   Clock,
@@ -36,9 +40,13 @@ import {
   Smartphone,
   UserX,
   ExternalLink,
+  Wallet,
+  Receipt,
+  Calculator,
 } from "lucide-react";
 import { format } from "date-fns";
 import { el } from "date-fns/locale";
+import { useToast } from "@/components/ui/use-toast";
 
 // Mock data για οικονομικά
 const todayRevenue = {
@@ -159,6 +167,22 @@ const outstandingDebts = [
 export function FinancePage() {
   const [selectedPeriod, setSelectedPeriod] = useState("today");
   const [currentTime, setCurrentTime] = useState(new Date());
+  const { toast } = useToast();
+
+  const handleApproveExpense = (expenseId: string) => {
+    toast({
+      title: "Έξοδο Εγκρίθηκε",
+      description: "Το έξοδο εγκρίθηκε επιτυχώς."
+    });
+  };
+
+  const handleRejectExpense = (expenseId: string) => {
+    toast({
+      title: "Έξοδο Απορρίφθηκε",
+      description: "Το έξοδο απορρίφθηκε και διαγράφηκε.",
+      variant: "destructive"
+    });
+  };
 
   // Live clock update
   useEffect(() => {
@@ -292,9 +316,12 @@ export function FinancePage() {
 
             {/* Tabs */}
             <Tabs defaultValue="revenue" className="w-full">
-              <TabsList className="grid w-full grid-cols-4">
+              <TabsList className="grid w-full grid-cols-7">
                 <TabsTrigger value="revenue">Έσοδα</TabsTrigger>
                 <TabsTrigger value="sessions">Συνεδρίες</TabsTrigger>
+                <TabsTrigger value="installments">Δόσεις</TabsTrigger>
+                <TabsTrigger value="cashregister">Live Ταμείο</TabsTrigger>
+                <TabsTrigger value="expenses">Έξοδα</TabsTrigger>
                 <TabsTrigger value="inactive">Ανενεργοί</TabsTrigger>
                 <TabsTrigger value="debts">Οφειλές</TabsTrigger>
               </TabsList>
@@ -418,6 +445,335 @@ export function FinancePage() {
                           </TableCell>
                           <TableCell>€{todayRevenue.byService.trial_sessions}</TableCell>
                           <TableCell>€{monthlyRevenue.byService.trial_sessions}</TableCell>
+                        </TableRow>
+                      </TableBody>
+                    </Table>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              {/* Payment Installments Tab */}
+              <TabsContent value="installments" className="space-y-4">
+                <div className="flex justify-between items-center">
+                  <h2 className="text-2xl font-bold">Διαχείριση Δόσεων Πληρωμής</h2>
+                  <PaymentInstallmentsModal />
+                </div>
+                
+                <div className="grid gap-4 md:grid-cols-4">
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm flex items-center gap-2">
+                        <Calculator className="h-4 w-4" />
+                        Συνολικές Δόσεις
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold">42</div>
+                      <p className="text-xs text-muted-foreground">
+                        Όλοι οι πελάτες
+                      </p>
+                    </CardContent>
+                  </Card>
+                  
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm flex items-center gap-2">
+                        <Clock className="h-4 w-4 text-orange-600" />
+                        Εκκρεμείς
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold text-orange-600">18</div>
+                      <p className="text-xs text-muted-foreground">
+                        €3,600 σύνολο
+                      </p>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm flex items-center gap-2">
+                        <AlertCircle className="h-4 w-4 text-red-600" />
+                        Καθυστερημένες
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold text-red-600">5</div>
+                      <p className="text-xs text-muted-foreground">
+                        €750 σύνολο
+                      </p>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm flex items-center gap-2">
+                        <TrendingUp className="h-4 w-4 text-green-600" />
+                        Αυτόματα Ξεκλειδώματα
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold text-green-600">12</div>
+                      <p className="text-xs text-muted-foreground">
+                        Τον τελευταίο μήνα
+                      </p>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Επισκόπηση Δόσεων & Ξεκλειδώματα Τιμοκαταλόγου</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-center p-8 border-2 border-dashed border-gray-300 rounded-lg">
+                      <CreditCard className="h-12 w-12 mx-auto text-gray-400 mb-4" />
+                      <h3 className="text-lg font-semibold mb-2">Διαχείριση Δόσεων Πληρωμής</h3>
+                      <p className="text-muted-foreground mb-4">
+                        Καταγράψτε δόσεις πελατών και παρακολουθήστε τα αυτόματα ξεκλειδώματα τιμοκαταλόγου
+                      </p>
+                      <PaymentInstallmentsModal />
+                    </div>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              {/* Cash Register Tab */}
+              <TabsContent value="cashregister" className="space-y-4">
+                <div className="flex justify-between items-center">
+                  <h2 className="text-2xl font-bold">Live Ταμείο</h2>
+                  <CashRegisterModal />
+                </div>
+                
+                <div className="grid gap-4 md:grid-cols-4">
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm flex items-center gap-2">
+                        <TrendingUp className="h-4 w-4 text-green-600" />
+                        Σημερινά Έσοδα
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold text-green-600">€{todayRevenue.total.toFixed(2)}</div>
+                      <p className="text-xs text-muted-foreground">
+                        15 συναλλαγές
+                      </p>
+                    </CardContent>
+                  </Card>
+                  
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm flex items-center gap-2">
+                        <TrendingDown className="h-4 w-4 text-red-600" />
+                        Σημερινές Αναλήψεις
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold text-red-600">€500.00</div>
+                      <p className="text-xs text-muted-foreground">
+                        1 ανάληψη ιδιοκτήτη
+                      </p>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm flex items-center gap-2">
+                        <Wallet className="h-4 w-4" />
+                        Καθαρό Σημερινό
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold text-green-600">
+                        €{(todayRevenue.total - 500).toFixed(2)}
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Έσοδα - Αναλήψεις
+                      </p>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm flex items-center gap-2">
+                        <Banknote className="h-4 w-4" />
+                        Μετρητά στο Ταμείο
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold">€{(todayRevenue.byPaymentMethod.cash - 500).toFixed(2)}</div>
+                      <p className="text-xs text-muted-foreground">
+                        Διαθέσιμα μετρητά
+                      </p>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Παρακολούθηση Ταμείου σε Πραγματικό Χρόνο</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-center p-8 border-2 border-dashed border-gray-300 rounded-lg">
+                      <Wallet className="h-12 w-12 mx-auto text-gray-400 mb-4" />
+                      <h3 className="text-lg font-semibold mb-2">Live Ταμείο</h3>
+                      <p className="text-muted-foreground mb-4">
+                        Καταγράψτε έσοδα και αναλήψεις με άμεση ενημέρωση υπολοίπου
+                      </p>
+                      <CashRegisterModal />
+                    </div>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              {/* Business Expenses Tab */}
+              <TabsContent value="expenses" className="space-y-4">
+                <div className="flex justify-between items-center">
+                  <h2 className="text-2xl font-bold">Καταγραφή Εξόδων</h2>
+                  <BusinessExpenseModal />
+                </div>
+                
+                <div className="grid gap-4 md:grid-cols-4">
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm">Σημερινά Έξοδα</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold text-red-600">€230.00</div>
+                      <p className="text-xs text-muted-foreground">
+                        3 έξοδα
+                      </p>
+                    </CardContent>
+                  </Card>
+                  
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm">Μηνιαία Έξοδα</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold">€5,450.00</div>
+                      <p className="text-xs text-muted-foreground">
+                        42 έξοδα
+                      </p>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm">Εκκρεμή Έξοδα</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold text-orange-600">€80.00</div>
+                      <p className="text-xs text-muted-foreground">
+                        1 εκκρεμές
+                      </p>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm">Κύρια Κατηγορία</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-lg font-bold">Λειτουργικά</div>
+                      <p className="text-xs text-muted-foreground">
+                        65% των εξόδων
+                      </p>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Πρόσφατα Έξοδα</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Ημερομηνία</TableHead>
+                          <TableHead>Κατηγορία</TableHead>
+                          <TableHead>Περιγραφή</TableHead>
+                          <TableHead>Προμηθευτής</TableHead>
+                          <TableHead>Ποσό</TableHead>
+                          <TableHead>Κατάσταση</TableHead>
+                          <TableHead>Ενέργειες</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        <TableRow>
+                          <TableCell>{format(new Date(), 'dd/MM/yyyy', { locale: el })}</TableCell>
+                          <TableCell>
+                            <Badge variant="outline">Λειτουργικά</Badge>
+                          </TableCell>
+                          <TableCell>Λογαριασμός ΔΕΗ Μαΐου</TableCell>
+                          <TableCell>ΔΕΗ</TableCell>
+                          <TableCell className="font-bold">€320.00</TableCell>
+                          <TableCell>
+                            <Badge variant="default" className="bg-green-100 text-green-800">
+                              Εγκεκριμένο
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <Button variant="outline" size="sm">
+                              <FileText className="h-4 w-4 mr-1" />
+                              Απόδειξη
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                        <TableRow>
+                          <TableCell>22/05/2024</TableCell>
+                          <TableCell>
+                            <Badge variant="outline">Εξοπλισμός</Badge>
+                          </TableCell>
+                          <TableCell>Επισκευή treadmill #3</TableCell>
+                          <TableCell>TechnoGym Service</TableCell>
+                          <TableCell className="font-bold">€150.00</TableCell>
+                          <TableCell>
+                            <Badge variant="default" className="bg-green-100 text-green-800">
+                              Εγκεκριμένο
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <Button variant="outline" size="sm">
+                              <FileText className="h-4 w-4 mr-1" />
+                              Απόδειξη
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                        <TableRow>
+                          <TableCell>23/05/2024</TableCell>
+                          <TableCell>
+                            <Badge variant="outline">Αναλώσιμα</Badge>
+                          </TableCell>
+                          <TableCell>Καθαριστικά προϊόντα</TableCell>
+                          <TableCell>CleanPro</TableCell>
+                          <TableCell className="font-bold">€80.00</TableCell>
+                          <TableCell>
+                            <Badge variant="secondary">
+                              Εκκρεμεί έγκριση
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex gap-1">
+                              <Button 
+                                variant="outline" 
+                                size="sm"
+                                className="bg-green-50 border-green-200 text-green-700 hover:bg-green-100"
+                                onClick={() => handleApproveExpense("exp_3")}
+                              >
+                                Έγκριση
+                              </Button>
+                              <Button 
+                                variant="outline" 
+                                size="sm"
+                                className="bg-red-50 border-red-200 text-red-700 hover:bg-red-100"
+                                onClick={() => handleRejectExpense("exp_3")}
+                              >
+                                Απόρριψη
+                              </Button>
+                            </div>
+                          </TableCell>
                         </TableRow>
                       </TableBody>
                     </Table>

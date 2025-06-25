@@ -26,6 +26,7 @@ import {
   SidebarTrigger,
   useSidebar,
 } from "@/components/ui/sidebar";
+import Logo from "./Logo";
 
 const navigationItems = [
   { title: "Πίνακας Ελέγχου", url: "/", icon: Grid2X2 },
@@ -34,6 +35,7 @@ const navigationItems = [
   { title: "Κρατήσεις & Παρουσίες", url: "/bookings", icon: Book },
   { title: "Προπονητές", url: "/trainers", icon: User },
   { title: "Κατάστημα", url: "/store", icon: Package },
+  { title: "Πακέτα", url: "/packages", icon: Package },
   { title: "Οικονομικά & Αναφορές", url: "/finance", icon: Euro },
   { title: "Αξιολόγηση & Πρόοδος", url: "/assessment", icon: Activity },
   { title: "Ρυθμίσεις", url: "/settings", icon: Settings },
@@ -68,30 +70,10 @@ export function AdminSidebar() {
       data-oid="cjavhx9"
     >
       <div
-        className="flex h-16 items-center justify-center border-b bg-sidebar relative"
+        className="flex h-16 items-center justify-center border-b bg-sidebar px-4"
         data-oid="4o5fj44"
       >
-        {/* Κάθετη μωβ γραμμή αριστερά */}
-        <div
-          className="absolute left-0 top-0 bottom-0 w-1 bg-primary"
-          data-oid="zorka8:"
-        ></div>
-
-        {!collapsed ? (
-          <div
-            className="text-xl font-bold font-sans bg-gradient-to-r from-[#A855F7] to-[#7E22CE] bg-clip-text text-transparent"
-            data-oid="4a_ddz5"
-          >
-            Sweat24
-          </div>
-        ) : (
-          <div
-            className="text-sm font-bold font-sans bg-gradient-to-r from-[#A855F7] to-[#7E22CE] bg-clip-text text-transparent"
-            data-oid="8x6gl.0"
-          >
-            S24
-          </div>
-        )}
+        <Logo />
       </div>
 
       <SidebarContent className="p-4 bg-sidebar" data-oid="hhj:xol">

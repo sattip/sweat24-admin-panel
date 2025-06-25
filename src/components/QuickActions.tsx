@@ -1,31 +1,55 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Plus, UserPlus, Calendar, Package, Bell } from "lucide-react";
+import { Plus, UserPlus, Calendar, Package, Bell, Wallet, CreditCard, Receipt } from "lucide-react";
+import { PaymentInstallmentsModal } from "./PaymentInstallmentsModal";
+import { CashRegisterModal } from "./CashRegisterModal";
+import { BusinessExpenseModal } from "./BusinessExpenseModal";
+import { NotificationSendModal } from "./NotificationSendModal";
+import { NewUserModal } from "./NewUserModal";
+import { NewClassModal } from "./NewClassModal";
 
 const quickActions = [
+  {
+    title: "Διαχείριση Δόσεων",
+    description: "Καταγραφή και παρακολούθηση δόσεων πελατών",
+    icon: CreditCard,
+    action: "Διαχείριση Δόσεων",
+    component: "installments"
+  },
+  {
+    title: "Live Ταμείο",
+    description: "Καταγραφή εσόδων και αναλήψεων",
+    icon: Wallet,
+    action: "Άνοιγμα Ταμείου",
+    component: "cashregister"
+  },
   {
     title: "Προσθήκη Νέου Μέλους",
     description: "Εγγραφή νέου μέλους στο γυμναστήριο",
     icon: UserPlus,
     action: "Προσθήκη Μέλους",
+    component: "newuser"
+  },
+  {
+    title: "Καταγραφή Εξόδων",
+    description: "Καταχώρηση λειτουργικών εξόδων",
+    icon: Receipt,
+    action: "Νέο Έξοδο",
+    component: "expenses"
   },
   {
     title: "Προγραμματισμός Μαθήματος",
     description: "Δημιουργία νέου μαθήματος γυμναστικής",
     icon: Calendar,
     action: "Προγραμματισμός",
-  },
-  {
-    title: "Προσθήκη Προϊόντος",
-    description: "Προσθήκη προϊόντος στο κατάστημα",
-    icon: Package,
-    action: "Προσθήκη Προϊόντος",
+    component: "newclass"
   },
   {
     title: "Αποστολή Ειδοποίησης",
     description: "Ενημέρωση όλων των μελών",
     icon: Bell,
     action: "Αποστολή",
+    component: "notification"
   },
 ];
 
@@ -79,13 +103,27 @@ export function QuickActions() {
                 </div>
               </div>
 
-              <Button
-                size="sm"
-                className="bg-primary hover:bg-primary/90 text-primary-foreground font-medium px-3 py-2 rounded-md transition-colors text-xs w-full"
-                data-oid="y8a53.b"
-              >
-                {action.action}
-              </Button>
+              {action.component === "installments" ? (
+                <PaymentInstallmentsModal />
+              ) : action.component === "cashregister" ? (
+                <CashRegisterModal />
+              ) : action.component === "expenses" ? (
+                <BusinessExpenseModal />
+              ) : action.component === "notification" ? (
+                <NotificationSendModal />
+              ) : action.component === "newuser" ? (
+                <NewUserModal />
+              ) : action.component === "newclass" ? (
+                <NewClassModal />
+              ) : (
+                <Button
+                  size="sm"
+                  className="bg-primary hover:bg-primary/90 text-primary-foreground font-medium px-3 py-2 rounded-md transition-colors text-xs w-full"
+                  data-oid="y8a53.b"
+                >
+                  {action.action}
+                </Button>
+              )}
             </div>
           ))}
         </div>

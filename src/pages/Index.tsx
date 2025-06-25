@@ -17,14 +17,13 @@ const Index = () => {
           <main className="flex-1 p-6 space-y-6" data-oid="s5miai-">
             {/* Τμήμα Καλωσορίσματος */}
             <div
-              className="rounded-lg p-6 text-white"
-              style={{ background: 'linear-gradient(to right, #A855F7, #7E22CE)' }}
+              className="rounded-lg p-6 text-primary-foreground bg-primary"
               data-oid="dnwjpn:"
             >
               <h1 className="text-2xl font-bold mb-2" data-oid="x_jezxg">
                 Καλώς ήρθατε στο Κέντρο Διαχείρισης Sweat24
               </h1>
-              <p className="text-purple-100 mb-4" data-oid="e08r_tj">
+              <p className="mb-4 opacity-90" data-oid="e08r_tj">
                 Διαχειριστείτε το γυμναστήριό σας αποτελεσματικά με ολοκληρωμένα εργαλεία
                 για πελάτες, μαθήματα και λειτουργίες.
               </p>
@@ -33,7 +32,7 @@ const Index = () => {
                   <div className="text-2xl font-bold" data-oid="9jnqwkd">
                     2,847
                   </div>
-                  <div className="text-purple-200 text-sm" data-oid="s_jyvfq">
+                  <div className="text-sm opacity-80" data-oid="s_jyvfq">
                     Ενεργά Μέλη
                   </div>
                 </div>
@@ -41,7 +40,7 @@ const Index = () => {
                   <div className="text-2xl font-bold" data-oid="3m:l09i">
                     156
                   </div>
-                  <div className="text-purple-200 text-sm" data-oid="p:jfry.">
+                  <div className="text-sm opacity-80" data-oid="p:jfry.">
                     Μαθήματα Αυτή την Εβδομάδα
                   </div>
                 </div>
@@ -49,7 +48,7 @@ const Index = () => {
                   <div className="text-2xl font-bold" data-oid="dyw41x2">
                     94%
                   </div>
-                  <div className="text-purple-200 text-sm" data-oid="15svzcx">
+                  <div className="text-sm opacity-80" data-oid="15svzcx">
                     Ποσοστό Ικανοποίησης
                   </div>
                 </div>

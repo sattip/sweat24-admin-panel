@@ -33,6 +33,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useToast } from "@/components/ui/use-toast";
+import { TimeTrackingModal } from "@/components/TimeTrackingModal";
+import { PayrollAgreementsModal } from "@/components/PayrollAgreementsModal";
+import { TrainerReportModal } from "@/components/TrainerReportModal";
 import {
   User,
   UserPlus,
@@ -48,10 +52,15 @@ import {
   Eye,
   Plus,
   Star,
+  DollarSign,
+  Target,
+  Euro,
 } from "lucide-react";
+import { mockInstructorsData, mockWorkTimeEntries, mockPayrollAgreements } from "@/data/mockData";
+import type { Instructor } from "@/data/mockData";
 
-// Mock data για προπονητές
-const mockTrainers = [
+// Εκτεταμένα mock data για προπονητές
+const mockTrainers: any[] = [
   {
     id: "1",
     name: "Άλεξ Ροδρίγκεζ",
@@ -67,6 +76,12 @@ const mockTrainers = [
     rating: 4.9,
     bio: "Εξειδικεύεται σε προπονήσεις υψηλής έντασης και αύξηση μυϊκής μάζας",
     avatar: "https://images.unsplash.com/photo-1581092795360-fd1ca04f0952",
+    hourlyRate: 25,
+    monthlyBonus: 100,
+    commissionRate: 0.10,
+    contractType: 'hourly' as const,
+    totalRevenue: 4500,
+    completedSessions: 180
   },
   {
     id: "2",
@@ -83,6 +98,11 @@ const mockTrainers = [
     rating: 4.8,
     bio: "Εστιάζει στην ολιστική προσέγγιση φυσικής και πνευματικής υγείας",
     avatar: "https://images.unsplash.com/photo-1518495973542-4542c06a5843",
+    hourlyRate: 30,
+    commissionRate: 0.15,
+    contractType: 'commission' as const,
+    totalRevenue: 3800,
+    completedSessions: 145
   },
   {
     id: "3",
@@ -99,6 +119,11 @@ const mockTrainers = [
     rating: 4.9,
     bio: "Ειδικός σε προγράμματα δύναμης και αισθητικής ανάπτυξης",
     avatar: "https://images.unsplash.com/photo-1469474968028-56623f02e42e",
+    hourlyRate: 35,
+    monthlyBonus: 150,
+    contractType: 'salary' as const,
+    totalRevenue: 6200,
+    completedSessions: 220
   },
   {
     id: "4",
@@ -115,6 +140,32 @@ const mockTrainers = [
     rating: 4.7,
     bio: "Ενεργητική προπονήτρια ομαδικών προγραμμάτων με έμφαση στη διασκέδαση",
     avatar: "https://images.unsplash.com/photo-1581091226825-a6a2a5aee158",
+    hourlyRate: 22,
+    monthlyBonus: 50,
+    contractType: 'hourly' as const,
+    totalRevenue: 2100,
+    completedSessions: 95
+  },
+  {
+    id: "5",
+    name: "Μάρκους Ουίλιαμς",
+    email: "marcus@sweat24.com",
+    phone: "6988555666",
+    specialties: ["CrossFit", "Olympic Lifting"],
+    certifications: ["CrossFit L2", "USAW Sport Performance"],
+    experience: "7 χρόνια",
+    joinDate: "2021-09-05",
+    status: "active",
+    weeklyHours: 32,
+    monthlyClasses: 42,
+    rating: 4.8,
+    bio: "Ειδικός σε functional fitness και olympic lifting",
+    avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d",
+    hourlyRate: 28,
+    commissionRate: 0.12,
+    contractType: 'commission' as const,
+    totalRevenue: 3200,
+    completedSessions: 128
   },
 ];
 
@@ -155,6 +206,7 @@ const trainerStats = [
 ];
 
 export function TrainersPage() {
+  const { toast } = useToast();
   const [trainers, setTrainers] = useState(mockTrainers);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -181,6 +233,15 @@ export function TrainersPage() {
   });
 
   const handleCreateTrainer = () => {
+    if (!formData.name || !formData.email) {
+      toast({
+        title: "Σφάλμα",
+        description: "Το Ονοματεπώνυμο και το Email είναι υποχρεωτικά.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     const newTrainer = {
       id: Date.now().toString(),
       name: formData.name,
@@ -200,6 +261,12 @@ export function TrainersPage() {
 
     setTrainers([...trainers, newTrainer]);
     setIsDialogOpen(false);
+
+    toast({
+      title: "Επιτυχία!",
+      description: `Ο προπονητής ${formData.name} προστέθηκε με επιτυχία.`,
+    });
+
     resetForm();
   };
 
@@ -252,13 +319,15 @@ export function TrainersPage() {
                   Διαχείριση προπονητών, στατιστικά και αντιστοίχιση με πελάτες
                 </p>
               </div>
-              <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-                <DialogTrigger asChild>
-                  <Button className="bg-primary hover:bg-primary/90">
-                    <UserPlus className="h-4 w-4 mr-2" />
-                    Νέος Προπονητής
-                  </Button>
-                </DialogTrigger>
+              <div className="flex gap-2">
+                <TrainerReportModal />
+                <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+                  <DialogTrigger asChild>
+                    <Button className="bg-primary hover:bg-primary/90 text-white">
+                      <UserPlus className="h-4 w-4 mr-2" />
+                      Νέος Προπονητής
+                    </Button>
+                  </DialogTrigger>
                 <DialogContent className="max-w-2xl">
                   <DialogHeader>
                     <DialogTitle>Προσθήκη Νέου Προπονητή</DialogTitle>
@@ -354,6 +423,7 @@ export function TrainersPage() {
                   </div>
                 </DialogContent>
               </Dialog>
+              </div>
             </div>
 
             {/* Stats Cards */}
@@ -441,18 +511,17 @@ export function TrainersPage() {
                       <SelectItem value="vacation">Σε άδεια</SelectItem>
                     </SelectContent>
                   </Select>
-                  <Button variant="outline">
-                    Εξαγωγή Αναφοράς
-                  </Button>
+                  <TrainerReportModal />
                 </div>
               </CardContent>
             </Card>
 
             {/* Main Content Tabs */}
             <Tabs defaultValue="trainers" className="w-full">
-              <TabsList className="grid w-full grid-cols-2">
+              <TabsList className="grid w-full grid-cols-3">
                 <TabsTrigger value="trainers">Προπονητές</TabsTrigger>
                 <TabsTrigger value="stats">Στατιστικά</TabsTrigger>
+                <TabsTrigger value="payroll">Μισθοδοσία</TabsTrigger>
               </TabsList>
 
               {/* Trainers Tab */}
@@ -476,33 +545,24 @@ export function TrainersPage() {
                       </TableHeader>
                       <TableBody>
                         {filteredTrainers.map((trainer) => (
-                          <TableRow key={trainer.id}>
-                            <TableCell className="flex items-center space-x-3">
-                              <Avatar>
-                                <AvatarImage src={trainer.avatar} />
-                                <AvatarFallback>
-                                  {trainer.name.split(" ").map(n => n[0]).join("")}
-                                </AvatarFallback>
-                              </Avatar>
-                              <div>
-                                <div className="font-medium">{trainer.name}</div>
-                                <div className="text-sm text-muted-foreground">
-                                  {trainer.email}
+                          <TableRow key={trainer.id} className="hover:bg-muted/50">
+                            <TableCell>
+                              <div className="flex items-center gap-3">
+                                <Avatar className="h-10 w-10">
+                                  <AvatarImage src={trainer.avatar || undefined} />
+                                  <AvatarFallback>{trainer.name.split(' ').map(n => n[0]).join('')}</AvatarFallback>
+                                </Avatar>
+                                <div>
+                                  <div className="font-medium">{trainer.name}</div>
+                                  <div className="text-muted-foreground text-sm">{trainer.email}</div>
                                 </div>
                               </div>
                             </TableCell>
                             <TableCell>
                               <div className="flex flex-wrap gap-1">
-                                {trainer.specialties.slice(0, 2).map((specialty, index) => (
-                                  <Badge key={index} variant="outline" className="text-xs">
-                                    {specialty}
-                                  </Badge>
+                                {trainer.specialties.slice(0, 3).map(spec => (
+                                  <Badge key={spec} variant="secondary">{spec}</Badge>
                                 ))}
-                                {trainer.specialties.length > 2 && (
-                                  <Badge variant="outline" className="text-xs">
-                                    +{trainer.specialties.length - 2}
-                                  </Badge>
-                                )}
                               </div>
                             </TableCell>
                             <TableCell>{trainer.experience}</TableCell>
@@ -515,24 +575,26 @@ export function TrainersPage() {
                               </div>
                             </TableCell>
                             <TableCell>
-                              <div className="flex items-center gap-1">
-                                <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                                <span className="font-medium">{trainer.rating}</span>
+                              <div className="flex items-center justify-center gap-1">
+                                <Star className="h-4 w-4 text-yellow-400" />
+                                <span>{trainer.rating}</span>
                               </div>
                             </TableCell>
                             <TableCell>
                               {getStatusBadge(trainer.status)}
                             </TableCell>
                             <TableCell>
-                              <div className="flex items-center space-x-2">
-                                <Button size="sm" variant="ghost">
+                              <div className="flex gap-1 justify-end">
+                                <Button variant="ghost" size="icon" title="Προβολή Προφίλ">
                                   <Eye className="h-4 w-4" />
                                 </Button>
-                                <Button size="sm" variant="ghost">
+                                <Button variant="ghost" size="icon" title="Επεξεργασία">
                                   <Edit className="h-4 w-4" />
                                 </Button>
-                                <Button size="sm" variant="ghost">
-                                  <Calendar className="h-4 w-4" />
+                                <TimeTrackingModal instructorId={trainer.id} />
+                                <PayrollAgreementsModal instructorId={trainer.id} />
+                                <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" title="Διαγραφή">
+                                  <Trash2 className="h-4 w-4" />
                                 </Button>
                               </div>
                             </TableCell>
@@ -564,20 +626,14 @@ export function TrainersPage() {
                       </TableHeader>
                       <TableBody>
                         {trainerStats.map((stat) => (
-                          <TableRow key={stat.trainerId}>
+                          <TableRow key={stat.trainerId} className="hover:bg-muted/50">
                             <TableCell className="font-medium">{stat.trainerName}</TableCell>
-                            <TableCell>
-                              <Badge variant="outline">{stat.thisWeekSessions}</Badge>
-                            </TableCell>
-                            <TableCell>
-                              <Badge variant="outline">{stat.thisMonthSessions}</Badge>
-                            </TableCell>
-                            <TableCell>
-                              <div className="font-medium">{stat.totalHours}h</div>
-                            </TableCell>
+                            <TableCell>{stat.thisWeekSessions}</TableCell>
+                            <TableCell>{stat.thisMonthSessions}</TableCell>
+                            <TableCell>{stat.totalHours}</TableCell>
                             <TableCell>
                               <div className="flex items-center gap-1">
-                                <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
+                                <Star className="h-4 w-4 text-yellow-400" />
                                 <span>{stat.averageRating}</span>
                               </div>
                             </TableCell>
@@ -596,6 +652,189 @@ export function TrainersPage() {
                     </Table>
                   </CardContent>
                 </Card>
+              </TabsContent>
+
+              {/* Payroll Tab */}
+              <TabsContent value="payroll" className="space-y-4">
+                {/* Performance & Revenue Analysis */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Target className="h-5 w-5" />
+                      Ανάλυση Απόδοσης & Τζίρου
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Προπονητής</TableHead>
+                          <TableHead>Συνολικός Τζίρος</TableHead>
+                          <TableHead>Ολοκληρωμένες Συνεδρίες</TableHead>
+                          <TableHead>Μέσος Τζίρος/Συνεδρία</TableHead>
+                          <TableHead>Αναλογία στον Τζίρο</TableHead>
+                          <TableHead>Τύπος Σύμβασης</TableHead>
+                          <TableHead>Ωριαία Αμοιβή</TableHead>
+                          <TableHead>Προβλεπόμενος Μισθός</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {mockTrainers.map((trainer) => {
+                          const totalRevenue = mockTrainers.reduce((sum, t) => sum + t.totalRevenue, 0);
+                          const revenuePercentage = ((trainer.totalRevenue / totalRevenue) * 100).toFixed(1);
+                          const avgRevenuePerSession = (trainer.totalRevenue / trainer.completedSessions).toFixed(1);
+                          
+                          // Calculate expected monthly salary
+                          let expectedSalary = 0;
+                          if (trainer.contractType === 'hourly') {
+                            expectedSalary = trainer.weeklyHours * 4 * trainer.hourlyRate + (trainer.monthlyBonus || 0);
+                          } else if (trainer.contractType === 'commission') {
+                            expectedSalary = trainer.totalRevenue * (trainer.commissionRate || 0);
+                          } else if (trainer.contractType === 'salary') {
+                            expectedSalary = trainer.hourlyRate * 160 + (trainer.monthlyBonus || 0); // 160h/month average
+                          }
+
+                          // Add active agreements
+                          const activeAgreements = mockPayrollAgreements.filter(
+                            a => a.instructorId === trainer.id && a.isActive && a.isRecurring
+                          );
+                          const agreementTotal = activeAgreements.reduce((sum, a) => {
+                            return a.type === 'deduction' ? sum - a.amount : sum + a.amount;
+                          }, 0);
+                          expectedSalary += agreementTotal;
+
+                          const getContractTypeBadge = (type: string) => {
+                            switch (type) {
+                              case 'hourly':
+                                return <Badge variant="outline">Ωριαία</Badge>;
+                              case 'commission':
+                                return <Badge variant="default" className="bg-blue-100 text-blue-800">Προμήθεια</Badge>;
+                              case 'salary':
+                                return <Badge variant="secondary">Μισθός</Badge>;
+                              default:
+                                return <Badge variant="outline">{type}</Badge>;
+                            }
+                          };
+
+                          return (
+                            <TableRow key={trainer.id} className="hover:bg-muted/50">
+                              <TableCell className="font-medium">{trainer.name}</TableCell>
+                              <TableCell>
+                                <div className="font-semibold text-green-600">€{trainer.totalRevenue}</div>
+                              </TableCell>
+                              <TableCell>{trainer.completedSessions}</TableCell>
+                              <TableCell>€{avgRevenuePerSession}</TableCell>
+                              <TableCell>
+                                <div className="flex items-center gap-2">
+                                  <div className="w-16 bg-muted rounded-full h-2">
+                                    <div 
+                                      className="bg-blue-500 h-2 rounded-full" 
+                                      style={{ width: `${Math.min(parseFloat(revenuePercentage), 100)}%` }}
+                                    />
+                                  </div>
+                                  <span className="text-sm font-medium">{revenuePercentage}%</span>
+                                </div>
+                              </TableCell>
+                              <TableCell>{getContractTypeBadge(trainer.contractType)}</TableCell>
+                              <TableCell>
+                                <div className="text-sm">
+                                  <div>€{trainer.hourlyRate}/ώρα</div>
+                                  {trainer.commissionRate && (
+                                    <div className="text-muted-foreground">
+                                      {(trainer.commissionRate * 100).toFixed(0)}% προμήθεια
+                                    </div>
+                                  )}
+                                </div>
+                              </TableCell>
+                              <TableCell>
+                                <div className="font-semibold text-green-600">
+                                  €{expectedSalary.toFixed(0)}/μήνα
+                                </div>
+                                {trainer.monthlyBonus && (
+                                  <div className="text-xs text-muted-foreground">
+                                    +€{trainer.monthlyBonus} bonus
+                                  </div>
+                                )}
+                                {agreementTotal !== 0 && (
+                                  <div className="text-xs text-blue-600">
+                                    {agreementTotal > 0 ? '+' : ''}€{agreementTotal} ειδικές συμφωνίες
+                                  </div>
+                                )}
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+                  </CardContent>
+                </Card>
+
+                {/* Time Tracking & Payroll Management */}
+                <div className="grid gap-4 md:grid-cols-2">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <Clock className="h-5 w-5" />
+                        Διαχείριση Ωρομέτρησης
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <p className="text-muted-foreground">
+                        Καταχώρηση και έγκριση ωρών εργασίας προπονητών
+                      </p>
+                      <TimeTrackingModal />
+                      
+                      {/* Quick stats */}
+                      <div className="grid gap-2 pt-4 border-t">
+                        <div className="flex justify-between">
+                          <span className="text-sm text-muted-foreground">Εκκρεμείς εγκρίσεις:</span>
+                          <span className="font-medium">
+                            {mockWorkTimeEntries.filter(entry => !entry.approved).length}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-sm text-muted-foreground">Συνολικές ώρες εβδομάδας:</span>
+                          <span className="font-medium">
+                            {mockWorkTimeEntries.reduce((sum, entry) => sum + entry.hoursWorked, 0)}h
+                          </span>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <DollarSign className="h-5 w-5" />
+                        Ειδικές Συμφωνίες Μισθοδοσίας
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <p className="text-muted-foreground">
+                        Διαχείριση bonus, αφαιρέσεων και ειδικών τιμών
+                      </p>
+                      <PayrollAgreementsModal />
+                      
+                      {/* Quick stats */}
+                      <div className="grid gap-2 pt-4 border-t">
+                        <div className="flex justify-between">
+                          <span className="text-sm text-muted-foreground">Ενεργές συμφωνίες:</span>
+                          <span className="font-medium">
+                            {mockPayrollAgreements.filter(agreement => agreement.isActive).length}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-sm text-muted-foreground">Συνολικά μηνιαία bonus:</span>
+                          <span className="font-medium text-green-600">
+                            +€{mockPayrollAgreements
+                              .filter(a => a.isActive && a.type === 'bonus' && a.isRecurring)
+                              .reduce((sum, a) => sum + a.amount, 0)}
+                          </span>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
               </TabsContent>
             </Tabs>
           </main>

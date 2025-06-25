@@ -13,6 +13,8 @@ import { StorePage } from "./pages/StorePage";
 import { FinancePage } from "./pages/FinancePage";
 import { AssessmentPage } from "./pages/AssessmentPage";
 import { SettingsPage } from "./pages/SettingsPage";
+import { PackagesPage } from "./pages/PackagesPage";
+import { UserProfilePage } from "./pages/UserProfilePage";
 
 const queryClient = new QueryClient();
 
@@ -33,6 +35,10 @@ const App = () => (
             element={<UsersPage />}
           />
           <Route
+            path="/users/:userId"
+            element={<UserProfilePage />}
+          />
+          <Route
             path="/classes"
             element={<ClassesPage />}
           />
@@ -47,6 +53,10 @@ const App = () => (
           <Route
             path="/store"
             element={<StorePage />}
+          />
+          <Route
+            path="/packages"
+            element={<PackagesPage />}
           />
           <Route
             path="/finance"

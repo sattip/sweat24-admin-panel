@@ -14,35 +14,35 @@
     --popover: 0 0% 100%;
     --popover-foreground: 224 71% 4%;
 
-    --primary: 262 83% 58%;
-    --primary-foreground: 210 40% 98%;
+    --primary: 0 71% 35%;
+    --primary-foreground: 0 0% 100%;
 
-    --secondary: 220 91% 54%;
-    --secondary-foreground: 210 40% 98%;
+    --secondary: 240 5.9% 10%;
+    --secondary-foreground: 0 0% 98%;
 
     --muted: 220 14% 96%;
     --muted-foreground: 220 8% 46%;
 
-    --accent: 262 83% 58%;
+    --accent: 0 45% 50%;
     --accent-foreground: 0 0% 100%;
 
-    --destructive: 0 84% 60%;
-    --destructive-foreground: 0 0% 98%;
+    --destructive: 358 86% 52%;
+    --destructive-foreground: 0 0% 100%;
 
     --border: 220 13% 91%;
     --input: 220 13% 91%;
-    --ring: 262 83% 58%;
+    --ring: 0 71% 35%;
 
     --radius: 0.5rem;
     
     --sidebar-background: 0 0% 100%;
     --sidebar-foreground: 224 71% 4%;
-    --sidebar-primary: 262 83% 58%;
-    --sidebar-primary-foreground: 210 40% 98%;
+    --sidebar-primary: 0 71% 35%;
+    --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 220 14% 96%;
     --sidebar-accent-foreground: 224 71% 4%;
     --sidebar-border: 220 13% 91%;
-    --sidebar-ring: 262 83% 58%;
+    --sidebar-ring: 0 71% 35%;
   }
 
   .dark {
@@ -55,33 +55,33 @@
     --popover: 224 71% 4%;
     --popover-foreground: 210 40% 98%;
 
-    --primary: 262 83% 58%;
+    --primary: 0 71% 45%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 220 91% 54%;
-    --secondary-foreground: 0 0% 100%;
+    --secondary: 240 5.9% 10%;
+    --secondary-foreground: 0 0% 98%;
 
     --muted: 217 33% 17%;
     --muted-foreground: 215 20% 65%;
 
-    --accent: 262 83% 68%;
+    --accent: 0 45% 55%;
     --accent-foreground: 0 0% 100%;
 
-    --destructive: 0 62% 30%;
-    --destructive-foreground: 0 0% 98%;
+    --destructive: 358 86% 60%;
+    --destructive-foreground: 0 0% 100%;
 
     --border: 217 33% 17%;
     --input: 217 33% 17%;
-    --ring: 262 83% 58%;
+    --ring: 0 71% 45%;
     
-    --sidebar-background: 224 71% 10%;
-    --sidebar-foreground: 0 0% 100%;
-    --sidebar-primary: 262 83% 58%;
+    --sidebar-background: 217 33% 17%;
+    --sidebar-foreground: 210 40% 98%;
+    --sidebar-primary: 0 71% 45%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 224 71% 15%;
-    --sidebar-accent-foreground: 0 0% 98%;
-    --sidebar-border: 224 71% 15%;
-    --sidebar-ring: 262 83% 58%;
+    --sidebar-accent: 217 33% 22%;
+    --sidebar-accent-foreground: 210 40% 98%;
+    --sidebar-border: 217 33% 17%;
+    --sidebar-ring: 0 71% 45%;
   }
 }
 
@@ -95,58 +95,4 @@
   }
 }
 
-@layer components {
-  .sweat24-gradient {
-    background: linear-gradient(to right, #A855F7, #7E22CE);
-  }
-  
-  .sweat24-card {
-    @apply bg-white rounded-lg shadow-sm border border-gray-200 p-6;
-    background-color: #FFFFFF;
-    border-color: #E5E7EB;
-  }
-  
-  .sweat24-button-primary {
-    @apply font-medium px-4 py-2 rounded-md transition-colors;
-    background-color: #7C3AED;
-    color: #FFFFFF;
-  }
-  
-  .sweat24-button-primary:hover {
-    background-color: #7E22CE;
-  }
-  
-  .sweat24-button-secondary {
-    @apply font-medium px-4 py-2 rounded-md transition-colors border;
-    background-color: #FFFFFF;
-    border-color: #D8B4FE;
-    color: #7C3AED;
-  }
-  
-  .sweat24-button-secondary:hover {
-    background-color: rgba(233, 213, 255, 0.2);
-    color: #7C3AED;
-  }
 
-  .sweat24-tag-purple {
-    background-color: #E9D5FF;
-    color: #7E22CE;
-    @apply px-2 py-1 rounded-full text-xs font-medium;
-  }
-
-  .sweat24-tag-blue {
-    background-color: #DBEAFE;
-    color: #1D4ED8;
-    @apply px-2 py-1 rounded-full text-xs font-medium;
-  }
-
-  /* ΚΡΙΣΙΜΗ ΔΙΟΡΘΩΣΗ: Ρητή αντικατάσταση τυχόν κίτρινων hover effects */
-  .sidebar-nav-item:hover {
-    background-color: rgba(233, 213, 255, 0.2) !important;
-    color: #7C3AED !important;
-  }
-  
-  .sidebar-nav-item:hover svg {
-    color: #7C3AED !important;
-  }
-}

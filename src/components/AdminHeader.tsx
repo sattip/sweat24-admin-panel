@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Bell, Search, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,8 +12,12 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { OwnerNotifications } from "./OwnerNotifications";
+import { AdminSettingsModal } from "./AdminSettingsModal";
 
 export function AdminHeader() {
+  const [settingsOpen, setSettingsOpen] = useState(false);
+
   return (
     <header
       className="flex h-16 items-center justify-between border-b border-border px-6 bg-background"
@@ -38,71 +43,8 @@ export function AdminHeader() {
       </div>
 
       <div className="flex items-center gap-3" data-oid="b7x3koj">
-        {/* Ειδοποιήσεις */}
-        <DropdownMenu data-oid="gs48ov4">
-          <DropdownMenuTrigger asChild data-oid="xuphbql">
-            <Button
-              variant="ghost"
-              size="sm"
-              className="relative text-foreground hover:bg-accent hover:text-accent-foreground h-10 w-10 p-0"
-              data-oid="j-so5g3"
-            >
-              <Bell className="h-5 w-5" data-oid="81-p1sc" />
-              <Badge
-                className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-destructive p-0 text-xs text-destructive-foreground flex items-center justify-center"
-                data-oid="x1h_55l"
-              >
-                3
-              </Badge>
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent
-            align="end"
-            className="w-80 bg-popover border border-border z-50"
-            data-oid="ain9934"
-          >
-            <DropdownMenuLabel
-              className="font-semibold text-popover-foreground"
-              data-oid="jexhy6u"
-            >
-              Ειδοποιήσεις
-            </DropdownMenuLabel>
-            <DropdownMenuSeparator data-oid="tgym_zi" />
-            <DropdownMenuItem
-              className="flex flex-col items-start gap-1 p-3 hover:bg-accent hover:text-accent-foreground"
-              data-oid="zr6yxm1"
-            >
-              <div className="text-sm font-medium" data-oid="icy037g">
-                Νέα εγγραφή χρήστη
-              </div>
-              <div className="text-xs opacity-75" data-oid="j5knuol">
-                Ο Γιάννης Παπαδόπουλος εγγράφηκε πριν από 5 λεπτά
-              </div>
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              className="flex flex-col items-start gap-1 p-3 hover:bg-accent hover:text-accent-foreground"
-              data-oid="78pt6_i"
-            >
-              <div className="text-sm font-medium" data-oid="fxr.kdj">
-                Ακύρωση κράτησης μαθήματος
-              </div>
-              <div className="text-xs opacity-75" data-oid="6fjbmg-">
-                Κράτηση HIIT ακυρώθηκε από τη Σάρα Κωνσταντίνου
-              </div>
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              className="flex flex-col items-start gap-1 p-3 hover:bg-accent hover:text-accent-foreground"
-              data-oid="e4psi:6"
-            >
-              <div className="text-sm font-medium" data-oid="6s8k41f">
-                Ειδοποίηση χαμηλού αποθέματος
-              </div>
-              <div className="text-xs opacity-75" data-oid="vw-98dt">
-                Το απόθεμα πρωτεϊνούχας σκόνης τελειώνει
-              </div>
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        {/* Ειδοποιήσεις Ιδιοκτήτη */}
+        <OwnerNotifications />
 
         {/* Προφίλ Διαχειριστή */}
         <DropdownMenu data-oid="edud97y">
@@ -155,16 +97,10 @@ export function AdminHeader() {
             </DropdownMenuLabel>
             <DropdownMenuSeparator data-oid="ivelhjl" />
             <DropdownMenuItem
+              onClick={() => setSettingsOpen(true)}
               className="text-popover-foreground hover:bg-accent hover:text-accent-foreground"
-              data-oid="zirmsuw"
             >
-              Ρυθμίσεις Προφίλ
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              className="text-popover-foreground hover:bg-accent hover:text-accent-foreground"
-              data-oid="k-::lgt"
-            >
-              Προτιμήσεις Διαχειριστή
+              Ρυθμίσεις Διαχειριστή
             </DropdownMenuItem>
             <DropdownMenuSeparator data-oid="a14:g8e" />
             <DropdownMenuItem
@@ -176,6 +112,12 @@ export function AdminHeader() {
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
+      
+      <AdminSettingsModal 
+        isOpen={settingsOpen} 
+        onOpenChange={setSettingsOpen}
+        triggerButton={false}
+      />
     </header>
   );
 }

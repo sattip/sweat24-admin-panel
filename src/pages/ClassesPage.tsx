@@ -50,60 +50,13 @@ import {
   MapPin,
   User,
 } from "lucide-react";
+import { mockClassesData, mockInstructorsData } from "@/data/mockData";
+import type { Class, Instructor } from "@/data/mockData";
 
 // Mock data για μαθήματα
-const mockClasses = [
-  {
-    id: "1",
-    name: "HIIT Blast",
-    type: "group",
-    instructor: "Άλεξ Ροδρίγκεζ",
-    date: "2024-05-24",
-    time: "09:00",
-    duration: 45,
-    maxParticipants: 12,
-    currentParticipants: 8,
-    location: "Main Floor",
-    description: "Υψηλή ένταση καρδιοαγγειακής προπόνησης",
-    status: "active",
-  },
-  {
-    id: "2",
-    name: "Yoga Flow",
-    type: "group",
-    instructor: "Εμιλι Τσεν",
-    date: "2024-05-24",
-    time: "18:00",
-    duration: 60,
-    maxParticipants: 15,
-    currentParticipants: 12,
-    location: "Studio A",
-    description: "Ρελακσάρισμα και ευελιξία",
-    status: "active",
-  },
-  {
-    id: "3",
-    name: "Personal Training",
-    type: "personal",
-    instructor: "Τζέιμς Τέιλορ",
-    date: "2024-05-24",
-    time: "16:00",
-    duration: 60,
-    maxParticipants: 1,
-    currentParticipants: 1,
-    location: "Weight Room",
-    description: "Εξατομικευμένη προπόνηση δύναμης",
-    status: "booked",
-  },
-];
+const mockClasses = mockClassesData;
 
-const instructors = [
-  { id: "1", name: "Άλεξ Ροδρίγκεζ", specialties: ["HIIT", "Strength"] },
-  { id: "2", name: "Εμιλι Τσεν", specialties: ["Yoga", "Pilates"] },
-  { id: "3", name: "Τζέιμς Τέιλορ", specialties: ["Personal Training", "Powerlifting"] },
-  { id: "4", name: "Σάρα Τζόνσον", specialties: ["Group Fitness", "Cardio"] },
-  { id: "5", name: "Μάρκους Ουίλιαμς", specialties: ["CrossFit", "Olympic Lifting"] },
-];
+const instructors = mockInstructorsData;
 
 const classTypes = [
   { value: "group", label: "Ομαδικό Μάθημα" },
@@ -143,7 +96,7 @@ export function ClassesPage() {
   );
 
   const handleCreateClass = () => {
-    const newClass = {
+    const newClass: Class = {
       id: Date.now().toString(),
       name: formData.name,
       type: formData.type,
@@ -155,7 +108,7 @@ export function ClassesPage() {
       currentParticipants: 0,
       location: formData.location,
       description: formData.description,
-      status: "active",
+      status: "active" as const,
     };
 
     setClasses([...classes, newClass]);
