@@ -47,6 +47,12 @@ import {
 import { format } from "date-fns";
 import { el } from "date-fns/locale";
 import { useToast } from "@/components/ui/use-toast";
+import { 
+  dashboardApi, 
+  paymentInstallmentsApi, 
+  cashRegisterApi, 
+  businessExpensesApi 
+} from "@/services/api";
 
 // Mock data για οικονομικά
 const todayRevenue = {
@@ -167,7 +173,53 @@ const outstandingDebts = [
 export function FinancePage() {
   const [selectedPeriod, setSelectedPeriod] = useState("today");
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [isLoading, setIsLoading] = useState(true);
+  const [financialStats, setFinancialStats] = useState({
+    totalRevenue: 0,
+    monthlyRevenue: 0,
+    pendingPayments: 0,
+    overduePayments: 0,
+    cashEntries: [],
+    expenses: [],
+    installments: []
+  });
   const { toast } = useToast();
+
+  // Fetch financial data
+  useEffect(() => {
+    const fetchFinancialData = async () => {
+      try {
+        setIsLoading(true);
+        const [dashboardResponse, cashResponse, expensesResponse, installmentsResponse] = await Promise.all([
+          dashboardApi.getStats(),
+          cashRegisterApi.getAll(),
+          businessExpensesApi.getAll(),
+          paymentInstallmentsApi.getAll()
+        ]);
+        
+        setFinancialStats({
+          totalRevenue: dashboardResponse.total_revenue || 0,
+          monthlyRevenue: dashboardResponse.monthly_revenue || 0,
+          pendingPayments: dashboardResponse.pending_payments || 0,
+          overduePayments: dashboardResponse.overdue_payments || 0,
+          cashEntries: cashResponse.data || cashResponse || [],
+          expenses: expensesResponse.data || expensesResponse || [],
+          installments: installmentsResponse.data || installmentsResponse || []
+        });
+      } catch (error) {
+        console.error('Error fetching financial data:', error);
+        toast({
+          title: "Σφάλμα",
+          description: "Αποτυχία φόρτωσης οικονομικών δεδομένων.",
+          variant: "destructive",
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    fetchFinancialData();
+  }, [toast]);
 
   const handleApproveExpense = (expenseId: string) => {
     toast({

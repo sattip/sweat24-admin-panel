@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Bell, Search, User } from "lucide-react";
+import { Bell, Search, User, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -14,9 +14,25 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { OwnerNotifications } from "./OwnerNotifications";
 import { AdminSettingsModal } from "./AdminSettingsModal";
+import { useAuth } from "@/contexts/AuthContext";
+import { useToast } from "@/components/ui/use-toast";
 
 export function AdminHeader() {
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const { user, logout } = useAuth();
+  const { toast } = useToast();
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+      toast({
+        title: "Αποσύνδεση",
+        description: "Αποσυνδεθήκατε με επιτυχία.",
+      });
+    } catch (error) {
+      console.error("Logout failed:", error);
+    }
+  };
 
   return (
     <header
@@ -76,13 +92,13 @@ export function AdminHeader() {
                   className="text-sm font-medium leading-tight"
                   data-oid="4kmseeq"
                 >
-                  Διαχειριστής
+                  {user?.name || 'Διαχειριστής'}
                 </span>
                 <span
                   className="text-xs opacity-75 leading-tight"
                   data-oid=".c:bz3m"
                 >
-                  admin@sweat24.gr
+                  {user?.email || 'admin@sweat24.com'}
                 </span>
               </div>
             </Button>
@@ -104,9 +120,11 @@ export function AdminHeader() {
             </DropdownMenuItem>
             <DropdownMenuSeparator data-oid="a14:g8e" />
             <DropdownMenuItem
+              onClick={handleLogout}
               className="text-destructive hover:bg-destructive hover:text-destructive-foreground"
               data-oid="kfk04ik"
             >
+              <LogOut className="mr-2 h-4 w-4" />
               Αποσύνδεση
             </DropdownMenuItem>
           </DropdownMenuContent>

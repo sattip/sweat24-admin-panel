@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { AdminSidebar } from "@/components/AdminSidebar";
 import { AdminHeader } from "@/components/AdminHeader";
@@ -31,15 +31,18 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/components/ui/use-toast";
-import { PackagePlus, Edit, Trash2, Package as PackageIcon, Search } from "lucide-react";
-import { mockPackagesData } from "@/data/mockData";
+import { PackagePlus, Edit, Trash2, Package as PackageIcon, Search, Loader2 } from "lucide-react";
+import { packagesApi } from "@/services/api";
 import type { Package } from "@/data/mockData";
 
 export function PackagesPage() {
   const { toast } = useToast();
-  const [packages, setPackages] = useState<Package[]>(mockPackagesData);
+  const [packages, setPackages] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isCreating, setIsCreating] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [formData, setFormData] = useState<Omit<Package, 'id'>>({
+  const [searchTerm, setSearchTerm] = useState("");
+  const [formData, setFormData] = useState({
     name: "",
     price: 0,
     sessions: 10,
@@ -48,30 +51,61 @@ export function PackagesPage() {
     status: "active",
   });
 
-  const handleCreatePackage = () => {
-    if (!formData.name || formData.price <= 0) {
-      toast({
-        title: "Σφάλμα",
-        description: "Το όνομα και η τιμή του πακέτου είναι υποχρεωτικά.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    const newPackage: Package = {
-      id: `pkg_${Date.now()}`,
-      ...formData,
+  // Fetch packages on component mount
+  useEffect(() => {
+    const fetchPackages = async () => {
+      try {
+        setIsLoading(true);
+        const response = await packagesApi.getAll();
+        setPackages(response.data || response || []);
+      } catch (error) {
+        console.error('Error fetching packages:', error);
+        toast({
+          title: "Σφάλμα",
+          description: "Αποτυχία φόρτωσης πακέτων. Παρακαλώ δοκιμάστε ξανά.",
+          variant: "destructive",
+        });
+      } finally {
+        setIsLoading(false);
+      }
     };
     
-    // TODO: Σε πραγματική εφαρμογή, θα κάναμε API call για αποθήκευση
-    // και μετά θα κάναμε refetch τα πακέτα ή θα ενημερώναμε το global state.
-    setPackages([...packages, newPackage]);
-    setIsDialogOpen(false);
-    toast({
-      title: "Επιτυχία",
-      description: `Το πακέτο "${formData.name}" δημιουργήθηκε.`,
-    });
-    resetForm();
+    fetchPackages();
+  }, [toast]);
+
+  const handleCreatePackage = async () => {
+    try {
+      setIsCreating(true);
+      
+      if (!formData.name || formData.price <= 0) {
+        toast({
+          title: "Σφάλμα",
+          description: "Το όνομα και η τιμή του πακέτου είναι υποχρεωτικά.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const response = await packagesApi.create(formData);
+      const newPackage = response.data || response;
+      
+      setPackages([...packages, newPackage]);
+      setIsDialogOpen(false);
+      toast({
+        title: "Επιτυχία",
+        description: `Το πακέτο "${formData.name}" δημιουργήθηκε.`,
+      });
+      resetForm();
+    } catch (error) {
+      console.error('Error creating package:', error);
+      toast({
+        title: "Σφάλμα",
+        description: "Αποτυχία δημιουργίας πακέτου. Παρακαλώ δοκιμάστε ξανά.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsCreating(false);
+    }
   };
   
   const resetForm = () => {
@@ -84,6 +118,12 @@ export function PackagesPage() {
       status: "active",
     });
   }
+
+  // Filter packages based on search term
+  const filteredPackages = packages.filter(pkg =>
+    pkg.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    pkg.type?.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   const getStatusBadge = (status: "active" | "inactive") => {
     switch (status) {
@@ -161,9 +201,31 @@ export function PackagesPage() {
                         </div>
                     </div>
                   </div>
-                  <Button onClick={handleCreatePackage} className="w-full">Δημιουργία Πακέτου</Button>
+                  <Button onClick={handleCreatePackage} className="w-full" disabled={isCreating}>
+                    {isCreating ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Δημιουργία...
+                      </>
+                    ) : (
+                      "Δημιουργία Πακέτου"
+                    )}
+                  </Button>
                 </DialogContent>
               </Dialog>
+            </div>
+
+            {/* Search */}
+            <div className="flex items-center space-x-2">
+              <div className="relative flex-1">
+                <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Αναζήτηση πακέτων..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-8"
+                />
+              </div>
             </div>
             
             <Card>
@@ -184,26 +246,45 @@ export function PackagesPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {packages.map((pkg: Package) => (
-                      <TableRow key={pkg.id} className="hover:bg-muted/50">
-                        <TableCell className="font-medium">{pkg.name}</TableCell>
-                        <TableCell>{pkg.type}</TableCell>
-                        <TableCell className="text-center">
-                          {isFinite(pkg.sessions) ? pkg.sessions : "Απεριόριστες"}
-                        </TableCell>
-                         <TableCell className="text-center">{pkg.duration} ημέρες</TableCell>
-                        <TableCell className="text-center">{getStatusBadge(pkg.status)}</TableCell>
-                        <TableCell className="text-right font-semibold">€{pkg.price}</TableCell>
-                        <TableCell className="text-right">
-                          <Button variant="ghost" size="icon" title="Επεξεργασία">
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" title="Διαγραφή">
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                    {isLoading ? (
+                      <TableRow>
+                        <TableCell colSpan={7} className="text-center py-8">
+                          <div className="flex items-center justify-center space-x-2">
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            <span className="text-muted-foreground">Φόρτωση πακέτων...</span>
+                          </div>
                         </TableCell>
                       </TableRow>
-                    ))}
+                    ) : filteredPackages.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={7} className="text-center py-8">
+                          <div className="text-muted-foreground">
+                            {searchTerm ? "Δεν βρέθηκαν πακέτα με τα τρέχοντα φίλτρα" : "Δεν υπάρχουν πακέτα"}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      filteredPackages.map((pkg: any) => (
+                        <TableRow key={pkg.id} className="hover:bg-muted/50">
+                          <TableCell className="font-medium">{pkg.name}</TableCell>
+                          <TableCell>{pkg.type}</TableCell>
+                          <TableCell className="text-center">
+                            {isFinite(pkg.sessions) ? pkg.sessions : "Απεριόριστες"}
+                          </TableCell>
+                           <TableCell className="text-center">{pkg.duration} ημέρες</TableCell>
+                          <TableCell className="text-center">{getStatusBadge(pkg.status)}</TableCell>
+                          <TableCell className="text-right font-semibold">€{pkg.price}</TableCell>
+                          <TableCell className="text-right">
+                            <Button variant="ghost" size="icon" title="Επεξεργασία">
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" title="Διαγραφή">
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
                   </TableBody>
                 </Table>
               </CardContent>
