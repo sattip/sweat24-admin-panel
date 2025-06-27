@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { AdminSidebar } from "@/components/AdminSidebar";
 import { AdminHeader } from "@/components/AdminHeader";
@@ -55,119 +55,11 @@ import {
   DollarSign,
   Target,
   Euro,
+  Loader2,
 } from "lucide-react";
-import { mockInstructorsData, mockWorkTimeEntries, mockPayrollAgreements } from "@/data/mockData";
+import { instructorsApi } from "@/services/apiService";
 import type { Instructor } from "@/data/mockData";
 
-// Εκτεταμένα mock data για προπονητές
-const mockTrainers: any[] = [
-  {
-    id: "1",
-    name: "Άλεξ Ροδρίγκεζ",
-    email: "alex@sweat24.com",
-    phone: "6944111222",
-    specialties: ["HIIT", "Strength Training", "Weight Loss"],
-    certifications: ["NASM-CPT", "CSCS", "TRX Certified"],
-    experience: "8 χρόνια",
-    joinDate: "2020-03-15",
-    status: "active",
-    weeklyHours: 35,
-    monthlyClasses: 48,
-    rating: 4.9,
-    bio: "Εξειδικεύεται σε προπονήσεις υψηλής έντασης και αύξηση μυϊκής μάζας",
-    avatar: "https://images.unsplash.com/photo-1581092795360-fd1ca04f0952",
-    hourlyRate: 25,
-    monthlyBonus: 100,
-    commissionRate: 0.10,
-    contractType: 'hourly' as const,
-    totalRevenue: 4500,
-    completedSessions: 180
-  },
-  {
-    id: "2",
-    name: "Εμιλι Τσεν",
-    email: "emily@sweat24.com",
-    phone: "6955222333",
-    specialties: ["Yoga", "Pilates", "Mindfulness"],
-    certifications: ["RYT-500", "Functional Movement", "Thai Massage"],
-    experience: "6 χρόνια",
-    joinDate: "2021-01-20",
-    status: "active",
-    weeklyHours: 28,
-    monthlyClasses: 32,
-    rating: 4.8,
-    bio: "Εστιάζει στην ολιστική προσέγγιση φυσικής και πνευματικής υγείας",
-    avatar: "https://images.unsplash.com/photo-1518495973542-4542c06a5843",
-    hourlyRate: 30,
-    commissionRate: 0.15,
-    contractType: 'commission' as const,
-    totalRevenue: 3800,
-    completedSessions: 145
-  },
-  {
-    id: "3",
-    name: "Τζέιμς Τέιλορ",
-    email: "james@sweat24.com",
-    phone: "6966333444",
-    specialties: ["Powerlifting", "Bodybuilding", "Strength"],
-    certifications: ["NSCA-CSCS", "Westside Certified", "Sports Nutrition"],
-    experience: "12 χρόνια",
-    joinDate: "2019-08-10",
-    status: "active",
-    weeklyHours: 40,
-    monthlyClasses: 56,
-    rating: 4.9,
-    bio: "Ειδικός σε προγράμματα δύναμης και αισθητικής ανάπτυξης",
-    avatar: "https://images.unsplash.com/photo-1469474968028-56623f02e42e",
-    hourlyRate: 35,
-    monthlyBonus: 150,
-    contractType: 'salary' as const,
-    totalRevenue: 6200,
-    completedSessions: 220
-  },
-  {
-    id: "4",
-    name: "Σάρα Τζόνσον",
-    email: "sarah@sweat24.com",
-    phone: "6977444555",
-    specialties: ["Group Fitness", "Cardio", "Dance"],
-    certifications: ["ACE-GFI", "Les Mills", "Zumba Instructor"],
-    experience: "5 χρόνια",
-    joinDate: "2022-02-14",
-    status: "active",
-    weeklyHours: 25,
-    monthlyClasses: 36,
-    rating: 4.7,
-    bio: "Ενεργητική προπονήτρια ομαδικών προγραμμάτων με έμφαση στη διασκέδαση",
-    avatar: "https://images.unsplash.com/photo-1581091226825-a6a2a5aee158",
-    hourlyRate: 22,
-    monthlyBonus: 50,
-    contractType: 'hourly' as const,
-    totalRevenue: 2100,
-    completedSessions: 95
-  },
-  {
-    id: "5",
-    name: "Μάρκους Ουίλιαμς",
-    email: "marcus@sweat24.com",
-    phone: "6988555666",
-    specialties: ["CrossFit", "Olympic Lifting"],
-    certifications: ["CrossFit L2", "USAW Sport Performance"],
-    experience: "7 χρόνια",
-    joinDate: "2021-09-05",
-    status: "active",
-    weeklyHours: 32,
-    monthlyClasses: 42,
-    rating: 4.8,
-    bio: "Ειδικός σε functional fitness και olympic lifting",
-    avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d",
-    hourlyRate: 28,
-    commissionRate: 0.12,
-    contractType: 'commission' as const,
-    totalRevenue: 3200,
-    completedSessions: 128
-  },
-];
 
 const specialtyOptions = [
   "HIIT", "Strength Training", "Yoga", "Pilates", "Cardio", "CrossFit",
@@ -175,39 +67,11 @@ const specialtyOptions = [
   "Group Fitness", "Dance", "EMS", "Functional Training", "Nutrition"
 ];
 
-const trainerStats = [
-  {
-    trainerId: "1",
-    trainerName: "Άλεξ Ροδρίγκεζ",
-    thisWeekSessions: 18,
-    thisMonthSessions: 48,
-    totalHours: 35,
-    averageRating: 4.9,
-    popularTimes: ["09:00-11:00", "17:00-19:00"],
-  },
-  {
-    trainerId: "2", 
-    trainerName: "Εμιλι Τσεν",
-    thisWeekSessions: 14,
-    thisMonthSessions: 32,
-    totalHours: 28,
-    averageRating: 4.8,
-    popularTimes: ["18:00-20:00", "10:00-12:00"],
-  },
-  {
-    trainerId: "3",
-    trainerName: "Τζέιμς Τέιλορ", 
-    thisWeekSessions: 22,
-    thisMonthSessions: 56,
-    totalHours: 40,
-    averageRating: 4.9,
-    popularTimes: ["06:00-08:00", "16:00-18:00"],
-  },
-];
 
 export function TrainersPage() {
   const { toast } = useToast();
-  const [trainers, setTrainers] = useState(mockTrainers);
+  const [trainers, setTrainers] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -222,17 +86,48 @@ export function TrainersPage() {
     bio: "",
   });
 
+  // Fetch trainers from API
+  useEffect(() => {
+    const fetchTrainers = async () => {
+      try {
+        setIsLoading(true);
+        const response = await instructorsApi.getAll();
+        setTrainers(response.data || response);
+      } catch (error) {
+        console.error('Error fetching trainers:', error);
+        toast({
+          title: "Σφάλμα",
+          description: "Αποτυχία φόρτωσης προπονητών. Παρακαλώ δοκιμάστε ξανά.",
+          variant: "destructive",
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchTrainers();
+  }, [toast]);
+
   const filteredTrainers = trainers.filter((trainer) => {
+    let specialties = trainer.specialties || [];
+    if (typeof specialties === 'string') {
+      try {
+        specialties = JSON.parse(specialties);
+      } catch {
+        specialties = [];
+      }
+    }
+    
     const matchesSearch = 
       trainer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      trainer.specialties.some(s => s.toLowerCase().includes(searchTerm.toLowerCase()));
+      specialties.some(s => s.toLowerCase().includes(searchTerm.toLowerCase()));
     
     const matchesStatus = statusFilter === "all" || trainer.status === statusFilter;
     
     return matchesSearch && matchesStatus;
   });
 
-  const handleCreateTrainer = () => {
+  const handleCreateTrainer = async () => {
     if (!formData.name || !formData.email) {
       toast({
         title: "Σφάλμα",
@@ -242,32 +137,37 @@ export function TrainersPage() {
       return;
     }
 
-    const newTrainer = {
-      id: Date.now().toString(),
-      name: formData.name,
-      email: formData.email,
-      phone: formData.phone,
-      specialties: formData.specialties,
-      certifications: formData.certifications.split(",").map(c => c.trim()),
-      experience: formData.experience,
-      joinDate: new Date().toISOString().split("T")[0],
-      status: "active",
-      weeklyHours: 0,
-      monthlyClasses: 0,
-      rating: 0,
-      bio: formData.bio,
-      avatar: null,
-    };
+    try {
+      const newTrainerData = {
+        name: formData.name,
+        email: formData.email,
+        phone: formData.phone,
+        specialties: formData.specialties,
+        certifications: formData.certifications.split(",").map(c => c.trim()),
+        experience: formData.experience,
+        bio: formData.bio,
+      };
 
-    setTrainers([...trainers, newTrainer]);
-    setIsDialogOpen(false);
+      const response = await instructorsApi.create(newTrainerData);
+      const newTrainer = response.data || response;
+      
+      setTrainers([...trainers, newTrainer]);
+      setIsDialogOpen(false);
 
-    toast({
-      title: "Επιτυχία!",
-      description: `Ο προπονητής ${formData.name} προστέθηκε με επιτυχία.`,
-    });
+      toast({
+        title: "Επιτυχία!",
+        description: `Ο προπονητής ${formData.name} προστέθηκε με επιτυχία.`,
+      });
 
-    resetForm();
+      resetForm();
+    } catch (error) {
+      console.error('Error creating trainer:', error);
+      toast({
+        title: "Σφάλμα",
+        description: "Αποτυχία δημιουργίας προπονητή. Παρακαλώ δοκιμάστε ξανά.",
+        variant: "destructive",
+      });
+    }
   };
 
   const resetForm = () => {
@@ -434,10 +334,19 @@ export function TrainersPage() {
                   <Users className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{trainers.length}</div>
-                  <p className="text-xs text-muted-foreground">
-                    {trainers.filter(t => t.status === 'active').length} ενεργοί
-                  </p>
+                  {isLoading ? (
+                    <div className="flex items-center space-x-2">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <span className="text-sm text-muted-foreground">Φόρτωση...</span>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="text-2xl font-bold">{trainers.length}</div>
+                      <p className="text-xs text-muted-foreground">
+                        {trainers.filter(t => t.status === 'active').length} ενεργοί
+                      </p>
+                    </>
+                  )}
                 </CardContent>
               </Card>
               <Card>
@@ -446,12 +355,21 @@ export function TrainersPage() {
                   <Clock className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">
-                    {trainers.reduce((sum, t) => sum + t.weeklyHours, 0)}
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    συνολικές ώρες αυτή την εβδομάδα
-                  </p>
+                  {isLoading ? (
+                    <div className="flex items-center space-x-2">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <span className="text-sm text-muted-foreground">Φόρτωση...</span>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="text-2xl font-bold">
+                        {trainers.reduce((sum, t) => sum + (t.weekly_hours || t.work_hours || 0), 0)}
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        συνολικές ώρες αυτή την εβδομάδα
+                      </p>
+                    </>
+                  )}
                 </CardContent>
               </Card>
               <Card>
@@ -460,12 +378,21 @@ export function TrainersPage() {
                   <Calendar className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">
-                    {trainers.reduce((sum, t) => sum + t.monthlyClasses, 0)}
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    συνολικά μαθήματα αυτό το μήνα
-                  </p>
+                  {isLoading ? (
+                    <div className="flex items-center space-x-2">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <span className="text-sm text-muted-foreground">Φόρτωση...</span>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="text-2xl font-bold">
+                        {trainers.reduce((sum, t) => sum + (t.monthly_classes || t.classes_count || 0), 0)}
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        συνολικά μαθήματα αυτό το μήνα
+                      </p>
+                    </>
+                  )}
                 </CardContent>
               </Card>
               <Card>
@@ -474,12 +401,24 @@ export function TrainersPage() {
                   <Star className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">
-                    {(trainers.reduce((sum, t) => sum + t.rating, 0) / trainers.length).toFixed(1)}
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    από 5.0 στάρια
-                  </p>
+                  {isLoading ? (
+                    <div className="flex items-center space-x-2">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <span className="text-sm text-muted-foreground">Φόρτωση...</span>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="text-2xl font-bold">
+                        {trainers.length > 0 ? 
+                          (trainers.reduce((sum, t) => sum + (t.rating || 0), 0) / trainers.length).toFixed(1) : 
+                          '0.0'
+                        }
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        από 5.0 στάρια
+                      </p>
+                    </>
+                  )}
                 </CardContent>
               </Card>
             </div>
@@ -560,17 +499,27 @@ export function TrainersPage() {
                             </TableCell>
                             <TableCell>
                               <div className="flex flex-wrap gap-1">
-                                {trainer.specialties.slice(0, 3).map(spec => (
-                                  <Badge key={spec} variant="secondary">{spec}</Badge>
-                                ))}
+                                {(() => {
+                                  let specialties = trainer.specialties || [];
+                                  if (typeof specialties === 'string') {
+                                    try {
+                                      specialties = JSON.parse(specialties);
+                                    } catch {
+                                      specialties = [];
+                                    }
+                                  }
+                                  return specialties.slice(0, 3).map(spec => (
+                                    <Badge key={spec} variant="secondary">{spec}</Badge>
+                                  ));
+                                })()}
                               </div>
                             </TableCell>
                             <TableCell>{trainer.experience}</TableCell>
                             <TableCell>
                               <div className="text-sm">
-                                <div className="font-medium">{trainer.weeklyHours}h</div>
+                                <div className="font-medium">{trainer.weekly_hours || trainer.work_hours || 0}h</div>
                                 <div className="text-muted-foreground">
-                                  {trainer.monthlyClasses} μαθήματα/μήνα
+                                  {trainer.monthly_classes || trainer.classes_count || 0} μαθήματα/μήνα
                                 </div>
                               </div>
                             </TableCell>
@@ -625,29 +574,49 @@ export function TrainersPage() {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {trainerStats.map((stat) => (
-                          <TableRow key={stat.trainerId} className="hover:bg-muted/50">
-                            <TableCell className="font-medium">{stat.trainerName}</TableCell>
-                            <TableCell>{stat.thisWeekSessions}</TableCell>
-                            <TableCell>{stat.thisMonthSessions}</TableCell>
-                            <TableCell>{stat.totalHours}</TableCell>
-                            <TableCell>
-                              <div className="flex items-center gap-1">
-                                <Star className="h-4 w-4 text-yellow-400" />
-                                <span>{stat.averageRating}</span>
-                              </div>
-                            </TableCell>
-                            <TableCell>
-                              <div className="text-sm">
-                                {stat.popularTimes.map((time, index) => (
-                                  <div key={index} className="text-muted-foreground">
-                                    {time}
-                                  </div>
-                                ))}
+                        {isLoading ? (
+                          <TableRow>
+                            <TableCell colSpan={6} className="text-center py-8">
+                              <div className="flex items-center justify-center">
+                                <Loader2 className="h-8 w-8 animate-spin mr-2" />
+                                <span className="text-muted-foreground">Φόρτωση στατιστικών...</span>
                               </div>
                             </TableCell>
                           </TableRow>
-                        ))}
+                        ) : filteredTrainers.length === 0 ? (
+                          <TableRow>
+                            <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                              Δεν υπάρχουν διαθέσιμα στατιστικά
+                            </TableCell>
+                          </TableRow>
+                        ) : (
+                          filteredTrainers.map((trainer) => (
+                            <TableRow key={trainer.id} className="hover:bg-muted/50">
+                              <TableCell className="font-medium">{trainer.name}</TableCell>
+                              <TableCell>{trainer.this_week_sessions || trainer.weekly_sessions || 0}</TableCell>
+                              <TableCell>{trainer.this_month_sessions || trainer.monthly_sessions || 0}</TableCell>
+                              <TableCell>{trainer.weekly_hours || trainer.work_hours || 0}</TableCell>
+                              <TableCell>
+                                <div className="flex items-center gap-1">
+                                  <Star className="h-4 w-4 text-yellow-400" />
+                                  <span>{trainer.rating || '0.0'}</span>
+                                </div>
+                              </TableCell>
+                              <TableCell>
+                                <div className="text-sm">
+                                  {(trainer.popular_times || []).map((time, index) => (
+                                    <div key={index} className="text-muted-foreground">
+                                      {time}
+                                    </div>
+                                  ))}
+                                  {(!trainer.popular_times || trainer.popular_times.length === 0) && (
+                                    <div className="text-muted-foreground">Δεν υπάρχουν δεδομένα</div>
+                                  )}
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          ))
+                        )}
                       </TableBody>
                     </Table>
                   </CardContent>
@@ -679,29 +648,24 @@ export function TrainersPage() {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {mockTrainers.map((trainer) => {
-                          const totalRevenue = mockTrainers.reduce((sum, t) => sum + t.totalRevenue, 0);
-                          const revenuePercentage = ((trainer.totalRevenue / totalRevenue) * 100).toFixed(1);
-                          const avgRevenuePerSession = (trainer.totalRevenue / trainer.completedSessions).toFixed(1);
+                        {filteredTrainers.map((trainer) => {
+                          const totalRevenue = filteredTrainers.reduce((sum, t) => sum + (t.total_revenue || 0), 0);
+                          const revenuePercentage = totalRevenue > 0 ? (((trainer.total_revenue || 0) / totalRevenue) * 100).toFixed(1) : '0.0';
+                          const avgRevenuePerSession = (trainer.completed_sessions || 0) > 0 ? ((trainer.total_revenue || 0) / (trainer.completed_sessions || 1)).toFixed(1) : '0.0';
                           
                           // Calculate expected monthly salary
                           let expectedSalary = 0;
-                          if (trainer.contractType === 'hourly') {
-                            expectedSalary = trainer.weeklyHours * 4 * trainer.hourlyRate + (trainer.monthlyBonus || 0);
-                          } else if (trainer.contractType === 'commission') {
-                            expectedSalary = trainer.totalRevenue * (trainer.commissionRate || 0);
-                          } else if (trainer.contractType === 'salary') {
-                            expectedSalary = trainer.hourlyRate * 160 + (trainer.monthlyBonus || 0); // 160h/month average
+                          if (trainer.contract_type === 'hourly') {
+                            expectedSalary = (Number(trainer.weekly_hours) || 0) * 4 * (Number(trainer.hourly_rate) || 0) + (Number(trainer.monthly_bonus) || 0);
+                          } else if (trainer.contract_type === 'commission') {
+                            expectedSalary = (Number(trainer.total_revenue) || 0) * (Number(trainer.commission_rate) || 0);
+                          } else if (trainer.contract_type === 'salary') {
+                            expectedSalary = (Number(trainer.hourly_rate) || 0) * 160 + (Number(trainer.monthly_bonus) || 0); // 160h/month average
                           }
+                          expectedSalary = Number(expectedSalary) || 0;
 
-                          // Add active agreements
-                          const activeAgreements = mockPayrollAgreements.filter(
-                            a => a.instructorId === trainer.id && a.isActive && a.isRecurring
-                          );
-                          const agreementTotal = activeAgreements.reduce((sum, a) => {
-                            return a.type === 'deduction' ? sum - a.amount : sum + a.amount;
-                          }, 0);
-                          expectedSalary += agreementTotal;
+                          // For now, skip payroll agreements as they're not implemented yet
+                          const agreementTotal = 0;
 
                           const getContractTypeBadge = (type: string) => {
                             switch (type) {
@@ -712,7 +676,7 @@ export function TrainersPage() {
                               case 'salary':
                                 return <Badge variant="secondary">Μισθός</Badge>;
                               default:
-                                return <Badge variant="outline">{type}</Badge>;
+                                return <Badge variant="outline">{type || 'Δεν έχει οριστεί'}</Badge>;
                             }
                           };
 
@@ -720,9 +684,9 @@ export function TrainersPage() {
                             <TableRow key={trainer.id} className="hover:bg-muted/50">
                               <TableCell className="font-medium">{trainer.name}</TableCell>
                               <TableCell>
-                                <div className="font-semibold text-green-600">€{trainer.totalRevenue}</div>
+                                <div className="font-semibold text-green-600">€{trainer.total_revenue || 0}</div>
                               </TableCell>
-                              <TableCell>{trainer.completedSessions}</TableCell>
+                              <TableCell>{trainer.completed_sessions || 0}</TableCell>
                               <TableCell>€{avgRevenuePerSession}</TableCell>
                               <TableCell>
                                 <div className="flex items-center gap-2">
@@ -735,13 +699,13 @@ export function TrainersPage() {
                                   <span className="text-sm font-medium">{revenuePercentage}%</span>
                                 </div>
                               </TableCell>
-                              <TableCell>{getContractTypeBadge(trainer.contractType)}</TableCell>
+                              <TableCell>{getContractTypeBadge(trainer.contract_type)}</TableCell>
                               <TableCell>
                                 <div className="text-sm">
-                                  <div>€{trainer.hourlyRate}/ώρα</div>
-                                  {trainer.commissionRate && (
+                                  <div>€{trainer.hourly_rate || 0}/ώρα</div>
+                                  {trainer.commission_rate && (
                                     <div className="text-muted-foreground">
-                                      {(trainer.commissionRate * 100).toFixed(0)}% προμήθεια
+                                      {((Number(trainer.commission_rate) || 0) * 100).toFixed(0)}% προμήθεια
                                     </div>
                                   )}
                                 </div>
@@ -750,9 +714,9 @@ export function TrainersPage() {
                                 <div className="font-semibold text-green-600">
                                   €{expectedSalary.toFixed(0)}/μήνα
                                 </div>
-                                {trainer.monthlyBonus && (
+                                {trainer.monthly_bonus && (
                                   <div className="text-xs text-muted-foreground">
-                                    +€{trainer.monthlyBonus} bonus
+                                    +€{trainer.monthly_bonus} bonus
                                   </div>
                                 )}
                                 {agreementTotal !== 0 && (
@@ -789,13 +753,13 @@ export function TrainersPage() {
                         <div className="flex justify-between">
                           <span className="text-sm text-muted-foreground">Εκκρεμείς εγκρίσεις:</span>
                           <span className="font-medium">
-                            {mockWorkTimeEntries.filter(entry => !entry.approved).length}
+                            0
                           </span>
                         </div>
                         <div className="flex justify-between">
                           <span className="text-sm text-muted-foreground">Συνολικές ώρες εβδομάδας:</span>
                           <span className="font-medium">
-                            {mockWorkTimeEntries.reduce((sum, entry) => sum + entry.hoursWorked, 0)}h
+                            {trainers.reduce((sum, trainer) => sum + (trainer.weekly_hours || 0), 0)}h
                           </span>
                         </div>
                       </div>
@@ -820,15 +784,13 @@ export function TrainersPage() {
                         <div className="flex justify-between">
                           <span className="text-sm text-muted-foreground">Ενεργές συμφωνίες:</span>
                           <span className="font-medium">
-                            {mockPayrollAgreements.filter(agreement => agreement.isActive).length}
+                            0
                           </span>
                         </div>
                         <div className="flex justify-between">
                           <span className="text-sm text-muted-foreground">Συνολικά μηνιαία bonus:</span>
                           <span className="font-medium text-green-600">
-                            +€{mockPayrollAgreements
-                              .filter(a => a.isActive && a.type === 'bonus' && a.isRecurring)
-                              .reduce((sum, a) => sum + a.amount, 0)}
+                            +€0
                           </span>
                         </div>
                       </div>

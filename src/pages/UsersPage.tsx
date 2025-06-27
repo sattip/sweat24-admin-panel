@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   UserPlus,
   Search,
@@ -10,7 +10,8 @@ import {
 import { useToast } from "@/components/ui/use-toast";
 import { Link } from "react-router-dom";
 import { buttonVariants } from "@/components/ui/button";
-import { mockUsersData, mockPackagesData } from "@/data/mockData";
+import { usersApi, packagesApi } from "@/services/apiService";
+import type { User, Package } from "@/data/mockData";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { AdminSidebar } from "@/components/AdminSidebar";
 import { AdminHeader } from "@/components/AdminHeader";
@@ -47,7 +48,7 @@ import {
 } from "@/components/ui/select";
 
 
-const NewUserDialogContent = ({ formData, setFormData, handleCreateUser }) => (
+const NewUserDialogContent = ({ formData, setFormData, handleCreateUser, packages }) => (
   <DialogContent className="max-w-lg">
     <DialogHeader>
       <DialogTitle>Δημιουργία Νέου Πελάτη</DialogTitle>
@@ -80,8 +81,8 @@ const NewUserDialogContent = ({ formData, setFormData, handleCreateUser }) => (
             <SelectValue placeholder="Επιλέξτε πακέτο (προαιρετικό)" />
           </SelectTrigger>
           <SelectContent>
-            {mockPackagesData.map((pkg) => (
-              <SelectItem key={pkg.id} value={pkg.id}>
+            {packages.map((pkg) => (
+              <SelectItem key={pkg.id} value={pkg.id.toString()}>
                 {pkg.name}
               </SelectItem>
             ))}
@@ -121,7 +122,9 @@ const NewUserDialogContent = ({ formData, setFormData, handleCreateUser }) => (
 
 export function UsersPage() {
   const { toast } = useToast();
-  const [users, setUsers] = useState(mockUsersData);
+  const [users, setUsers] = useState<User[]>([]);
+  const [packages, setPackages] = useState<Package[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null); 
@@ -135,12 +138,39 @@ export function UsersPage() {
     sendLoginDetails: true,
   });
 
+  // Load data from API
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const loadData = async () => {
+    try {
+      setLoading(true);
+      const [usersResponse, packagesResponse] = await Promise.all([
+        usersApi.getAll(),
+        packagesApi.getAll()
+      ]);
+      
+      setUsers(usersResponse.data || usersResponse);
+      setPackages(packagesResponse);
+    } catch (error) {
+      console.error('Failed to load data:', error);
+      toast({
+        title: "Σφάλμα",
+        description: "Αποτυχία φόρτωσης δεδομένων. Παρακαλώ δοκιμάστε ξανά.",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const filteredUsers = users.filter((user) =>
     user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     user.email.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const handleCreateUser = () => {
+  const handleCreateUser = async () => {
     if (!formData.name || !formData.email) {
       toast({ title: "Σφάλμα", description: "Το Ονοματεπώνυμο και το Email είναι υποχρεωτικά.", variant: "destructive" });
       return;
@@ -150,43 +180,40 @@ export function UsersPage() {
       return;
     }
 
-    const selectedPackage = mockPackagesData.find(p => p.id === formData.packageType);
-    const newUser = {
-      id: Date.now().toString(),
-      name: formData.name,
-      email: formData.email,
-      phone: formData.phone,
-      membershipType: selectedPackage?.name.split(" - ")[0] || "Χωρίς Πακέτο",
-      joinDate: new Date().toISOString().split("T")[0],
-      status: "active",
-      lastVisit: "-",
-      medicalHistory: formData.medicalHistory,
-      avatar: null,
-      packages: selectedPackage ? [{
-        id: `userPkg_${Date.now()}`,
-        packageId: selectedPackage.id,
-        name: selectedPackage.name,
-        assignedDate: new Date().toISOString().split("T")[0],
-        expiryDate: new Date(new Date().setDate(new Date().getDate() + selectedPackage.duration)).toISOString().split("T")[0],
-        remainingSessions: selectedPackage.sessions,
-        totalSessions: selectedPackage.sessions,
-        status: 'active'
-      }] : [],
-      activityLog: selectedPackage ? [{ date: new Date().toISOString().split("T")[0], action: `Αγορά πακέτου '${selectedPackage.name}'` }] : [],
-    };
+    try {
+      const selectedPackage = packages.find(p => p.id.toString() === formData.packageType);
+      const newUserData = {
+        name: formData.name,
+        email: formData.email,
+        phone: formData.phone,
+        password: 'defaultpassword123', // You may want to generate a random password
+        membership_type: selectedPackage?.name.split(" - ")[0] || "Χωρίς Πακέτο",
+        medical_history: formData.medicalHistory,
+      };
 
-    setUsers([...users, newUser]);
-    setIsDialogOpen(false);
+      const createdUser = await usersApi.create(newUserData);
+      
+      // Refresh the users list
+      await loadData();
+      
+      setIsDialogOpen(false);
+      toast({ title: "Επιτυχία!", description: `Ο πελάτης ${formData.name} δημιουργήθηκε.` });
 
-    toast({ title: "Επιτυχία!", description: `Ο πελάτης ${formData.name} δημιουργήθηκε.` });
-
-    if (formData.sendLoginDetails) {
-      setTimeout(() => {
-        toast({ title: "Αποστολή Email", description: `Τα στοιχεία σύνδεσης στάλθηκαν στο ${formData.email}.` });
-      }, 1000);
+      if (formData.sendLoginDetails) {
+        setTimeout(() => {
+          toast({ title: "Αποστολή Email", description: `Τα στοιχεία σύνδεσης στάλθηκαν στο ${formData.email}.` });
+        }, 1000);
+      }
+      
+      resetForm();
+    } catch (error) {
+      console.error('Failed to create user:', error);
+      toast({ 
+        title: "Σφάλμα", 
+        description: "Αποτυχία δημιουργίας πελάτη. Παρακαλώ δοκιμάστε ξανά.", 
+        variant: "destructive" 
+      });
     }
-    
-    resetForm();
   };
   
   const resetForm = () => {
@@ -218,7 +245,7 @@ export function UsersPage() {
                 <DialogTrigger asChild>
                   <Button className="bg-primary text-white hover:bg-primary/90"><UserPlus className="h-4 w-4 mr-2" />Νέος Πελάτης</Button>
                 </DialogTrigger>
-                <NewUserDialogContent formData={formData} setFormData={setFormData} handleCreateUser={handleCreateUser} />
+                <NewUserDialogContent formData={formData} setFormData={setFormData} handleCreateUser={handleCreateUser} packages={packages} />
               </Dialog>
             </div>
 
@@ -242,7 +269,9 @@ export function UsersPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredUsers.length > 0 ? filteredUsers.map((user) => {
+                    {loading ? (
+                      <TableRow><TableCell colSpan={5} className="text-center h-24">Φόρτωση...</TableCell></TableRow>
+                    ) : filteredUsers.length > 0 ? filteredUsers.map((user) => {
                       const activePackage = user.packages?.find(p => p.status === 'active');
                       return (
                       <TableRow key={user.id} className="hover:bg-muted/50">

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { AdminSidebar } from "@/components/AdminSidebar";
 import { AdminHeader } from "@/components/AdminHeader";
@@ -41,11 +41,12 @@ import {
   ArrowRightLeft,
   Plus,
   X,
+  Loader2,
 } from "lucide-react";
 import { format } from "date-fns";
 import { el } from "date-fns/locale";
 import { useToast } from "@/components/ui/use-toast";
-import { mockBookingsData, mockUsersData, mockClassesData, mockInstructorsData } from "@/data/mockData";
+import { bookingsApi, usersApi, classesApi, instructorsApi } from "@/services/api";
 import type { Booking, User as UserType, Class, Instructor } from "@/data/mockData";
 import { notifyGracefulCancellation } from "@/utils/notifications";
 
@@ -53,7 +54,12 @@ type DialogType = 'transfer' | 'new' | null;
 
 export function BookingsPage() {
   const { toast } = useToast();
-  const [bookings, setBookings] = useState<Booking[]>(mockBookingsData);
+  const [bookings, setBookings] = useState<any[]>([]);
+  const [users, setUsers] = useState<any[]>([]);
+  const [classes, setClasses] = useState<any[]>([]);
+  const [instructors, setInstructors] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isCreating, setIsCreating] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [selectedDate, setSelectedDate] = useState("today");
@@ -62,169 +68,246 @@ export function BookingsPage() {
   
   // State for transfer
   const [transferTargetUser, setTransferTargetUser] = useState<string | null>(null);
-  const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
+  const [selectedBooking, setSelectedBooking] = useState<any | null>(null);
 
   // State for new booking
   const [newBookingData, setNewBookingData] = useState({
     userId: '',
+    customer_name: '',
+    customer_email: '',
     className: '',
     instructor: '',
     date: '',
-    time: ''
+    time: '',
+    type: 'group'
   });
+
+  // Fetch data on component mount
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setIsLoading(true);
+        const [bookingsResponse, usersResponse, classesResponse, instructorsResponse] = await Promise.all([
+          bookingsApi.getAll(),
+          usersApi.getAll(),
+          classesApi.getAll(),
+          instructorsApi.getAll()
+        ]);
+        
+        setBookings(bookingsResponse.data || bookingsResponse || []);
+        setUsers(usersResponse.data || usersResponse || []);
+        setClasses(classesResponse.data || classesResponse || []);
+        setInstructors(instructorsResponse.data || instructorsResponse || []);
+      } catch (error) {
+        console.error('Error fetching data:', error);
+        toast({
+          title: "Σφάλμα",
+          description: "Αποτυχία φόρτωσης δεδομένων. Παρακαλώ δοκιμάστε ξανά.",
+          variant: "destructive",
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    fetchData();
+  }, [toast]);
 
   const handleInputChange = (field: string, value: string) => {
     setNewBookingData(prev => ({...prev, [field]: value}));
   };
 
+  const handleUserChange = (userId: string) => {
+    const selectedUser = users.find(u => u.id === userId);
+    if (selectedUser) {
+      setNewBookingData(prev => ({
+        ...prev,
+        userId: userId,
+        customer_name: selectedUser.name,
+        customer_email: selectedUser.email,
+      }));
+    }
+  };
+
   const handleClassChange = (classId: string) => {
-    const selectedClass = mockClassesData.find(c => c.id === classId);
+    const selectedClass = classes.find(c => c.id === classId);
     if (!selectedClass) return;
 
     setNewBookingData(prev => ({
       ...prev,
       className: selectedClass.name,
-      // Automatically set instructor from the selected class
-      instructor: selectedClass.instructor,
+      instructor: selectedClass.instructor?.name || selectedClass.instructor,
     }));
   };
 
-  const handleCreateBooking = () => {
-    const { userId, className, date, time } = newBookingData;
-    const user = mockUsersData.find(u => u.id === userId);
+  const handleCreateBooking = async () => {
+    try {
+      setIsCreating(true);
+      const { userId, customer_name, customer_email, className, instructor, date, time, type } = newBookingData;
 
-    if (!user || !className || !date || !time) {
-        toast({ title: "Σφάλμα", description: "Παρακαλώ συμπληρώστε όλα τα απαραίτητα πεδία.", variant: "destructive"});
+      if (!customer_name || !customer_email || !className || !date || !time) {
+        toast({ 
+          title: "Σφάλμα", 
+          description: "Παρακαλώ συμπληρώστε όλα τα απαραίτητα πεδία.", 
+          variant: "destructive"
+        });
         return;
+      }
+
+      const bookingData = {
+        user_id: userId || null,
+        customer_name,
+        customer_email,
+        class_name: className,
+        instructor,
+        date,
+        time,
+        type,
+        location: 'Main Floor'
+      };
+
+      const response = await bookingsApi.create(bookingData);
+      const newBooking = response.data || response;
+      
+      setBookings([...bookings, newBooking]);
+      setOpenDialog(null);
+
+      toast({
+        title: "Επιτυχία!",
+        description: `Η κράτηση για ${customer_name} δημιουργήθηκε με επιτυχία.`,
+      });
+
+      // Reset form
+      setNewBookingData({
+        userId: '',
+        customer_name: '',
+        customer_email: '',
+        className: '',
+        instructor: '',
+        date: '',
+        time: '',
+        type: 'group'
+      });
+    } catch (error) {
+      console.error('Error creating booking:', error);
+      toast({
+        title: "Σφάλμα",
+        description: "Αποτυχία δημιουργίας κράτησης. Παρακαλώ δοκιμάστε ξανά.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsCreating(false);
     }
-
-    const newBooking: Booking = {
-        id: `booking_${Date.now()}`,
-        userId: user.id,
-        customerName: user.name,
-        customerEmail: user.email,
-        className: className,
-        instructor: newBookingData.instructor || "Δεν ορίστηκε",
-        date: date,
-        time: time,
-        status: 'confirmed',
-        type: className.toLowerCase().includes('personal') ? 'personal' : 'group',
-        attended: null,
-        bookingTime: new Date().toISOString(),
-        location: "Main Floor",
-        avatar: user.avatar,
-    };
-
-    setBookings(prev => [newBooking, ...prev]);
-    toast({ title: "Επιτυχής Δημιουργία", description: `Η κράτηση για τον/την ${user.name} δημιουργήθηκε.`});
-    
-    setNewBookingData({ userId: '', className: '', instructor: '', date: '', time: '' });
-    setOpenDialog(null);
   };
 
-  const filteredBookings = bookings.filter((booking) => {
-    const matchesSearch = 
-      booking.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      booking.className.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      booking.instructor.toLowerCase().includes(searchTerm.toLowerCase());
+  const handleCheckIn = async (bookingId: string) => {
+    try {
+      const response = await bookingsApi.checkIn(bookingId);
+      const updatedBooking = response.data || response;
+      
+      setBookings(bookings.map(booking => 
+        booking.id === bookingId ? updatedBooking : booking
+      ));
+
+      toast({
+        title: "Επιτυχία!",
+        description: "Ο πελάτης καταγράφηκε ως παρών.",
+      });
+    } catch (error) {
+      console.error('Error checking in booking:', error);
+      toast({
+        title: "Σφάλμα",
+        description: "Αποτυχία καταγραφής παρουσίας.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleCancelBooking = async (bookingId: string, reason: string = '') => {
+    try {
+      const response = await bookingsApi.update(bookingId, {
+        status: 'cancelled',
+        cancellation_reason: reason
+      });
+      const updatedBooking = response.data || response;
+      
+      setBookings(bookings.map(booking => 
+        booking.id === bookingId ? updatedBooking : booking
+      ));
+
+      toast({
+        title: "Επιτυχία!",
+        description: "Η κράτηση ακυρώθηκε.",
+      });
+
+      // Notify about graceful cancellation
+      notifyGracefulCancellation();
+    } catch (error) {
+      console.error('Error cancelling booking:', error);
+      toast({
+        title: "Σφάλμα",
+        description: "Αποτυχία ακύρωσης κράτησης.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Filter bookings based on search term, status, and date
+  const filteredBookings = bookings.filter(booking => {
+    const matchesSearch = searchTerm === "" || 
+      booking.customer_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      booking.class_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      booking.instructor?.toLowerCase().includes(searchTerm.toLowerCase());
     
     const matchesStatus = statusFilter === "all" || booking.status === statusFilter;
     
-    const today = new Date();
-    today.setHours(0,0,0,0);
-    const bookingDate = new Date(booking.date);
-    bookingDate.setHours(0,0,0,0);
-    
-    const matchesDate = selectedDate === "all" || 
-      (selectedDate === "today" && bookingDate.getTime() === today.getTime()) ||
-      (selectedDate === "upcoming" && bookingDate > today);
+    let matchesDate = true;
+    if (selectedDate === "today") {
+      matchesDate = booking.date === format(new Date(), "yyyy-MM-dd");
+    } else if (selectedDate === "tomorrow") {
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      matchesDate = booking.date === format(tomorrow, "yyyy-MM-dd");
+    }
     
     return matchesSearch && matchesStatus && matchesDate;
   });
 
   const getStatusBadge = (status: string) => {
     switch (status) {
-      case "confirmed": return <Badge variant="default" className="bg-green-100 text-green-800">Επιβεβαιωμένη</Badge>;
-      case "pending": return <Badge variant="secondary">Εκκρεμής</Badge>;
-      case "cancelled": return <Badge variant="destructive">Ακυρώθηκε</Badge>;
-      case "waitlist": return <Badge variant="outline" className="bg-orange-100 text-orange-800">Λίστα Αναμονής</Badge>;
-      case "completed": return <Badge variant="default" className="bg-blue-100 text-blue-800">Ολοκληρώθηκε</Badge>;
-      default: return <Badge variant="outline">{status}</Badge>;
+      case "confirmed":
+        return <Badge variant="default" className="bg-green-100 text-green-800">Επιβεβαιωμένη</Badge>;
+      case "pending":
+        return <Badge variant="secondary">Εκκρεμεί</Badge>;
+      case "cancelled":
+        return <Badge variant="destructive">Ακυρωμένη</Badge>;
+      case "completed":
+        return <Badge variant="outline" className="bg-blue-100 text-blue-800">Ολοκληρωμένη</Badge>;
+      case "waitlist":
+        return <Badge variant="outline">Λίστα Αναμονής</Badge>;
+      default:
+        return <Badge variant="outline">{status}</Badge>;
     }
   };
 
-  const getAttendanceBadge = (attended: boolean | null) => {
-    if (attended === null) return <Badge variant="outline">Εκκρεμής</Badge>;
-    if (attended) return <Badge variant="default" className="bg-green-100 text-green-800">Παρών</Badge>;
-    return <Badge variant="destructive">Απών</Badge>;
-  };
-
-  const markAttendance = (bookingId: string, attended: boolean) => {
-    const booking = bookings.find(b => b.id === bookingId);
-    if (!booking) return;
-
-    if (attended) {
-        const user = mockUsersData.find(u => u.id === booking.userId);
-        if (!user) {
-            toast({ title: "Σφάλμα", description: "Δεν βρέθηκε ο χρήστης για αυτή την κράτηση.", variant: "destructive" });
-            return;
-        }
-        const activePackage = user.packages.find(p => p.status === 'active' && p.remainingSessions > 0);
-        if (activePackage) {
-            activePackage.remainingSessions--;
-            user.activityLog.push({ date: format(new Date(), "yyyy-MM-dd"), action: `Check-in: ${booking.className}` });
-            setBookings(prevBookings => prevBookings.map(b => b.id === bookingId ? { ...b, attended: true, status: 'completed' } : b));
-            toast({ title: "Επιτυχές Check-in", description: `1 συνεδρία αφαιρέθηκε. Απομένουν ${activePackage.remainingSessions}.` });
-        } else {
-            toast({ title: "Αποτυχία Check-in", description: "Δεν βρέθηκε ενεργό πακέτο.", variant: "destructive" });
-            return;
-        }
-    } else {
-        setBookings(prevBookings => prevBookings.map(b => b.id === bookingId ? { ...b, attended: false } : b));
-        toast({ title: "Καταγραφή Απουσίας", description: "Ο πελάτης σημειώθηκε ως απών.", variant: "destructive" });
+  const getTypeBadge = (type: string) => {
+    switch (type) {
+      case "group":
+        return <Badge variant="outline">Ομαδικό</Badge>;
+      case "personal":
+        return <Badge variant="default">Personal</Badge>;
+      default:
+        return <Badge variant="outline">{type}</Badge>;
     }
   };
 
-  const handleTransfer = () => {
-    if (!selectedBooking || !transferTargetUser) return;
-    const fromUser = mockUsersData.find(u => u.id === selectedBooking.userId);
-    const toUser = mockUsersData.find(u => u.id === transferTargetUser);
-    if (!fromUser || !toUser) {
-        toast({ title: "Σφάλμα", description: "Δεν βρέθηκε ο χρήστης.", variant: "destructive" });
-        return;
-    }
-    setBookings(prevBookings => prevBookings.map(b => b.id === selectedBooking.id ? { ...b, userId: toUser.id, customerName: toUser.name, customerEmail: toUser.email, avatar: toUser.avatar } : b));
-    fromUser.activityLog.push({ date: format(new Date(), "yyyy-MM-dd"), action: `Μεταφορά κράτησης '${selectedBooking.className}' στον χρήστη ${toUser.name}` });
-    toUser.activityLog.push({ date: format(new Date(), "yyyy-MM-dd"), action: `Λήψη κράτησης '${selectedBooking.className}' από τον χρήστη ${fromUser.name}` });
-    toast({ title: "Επιτυχής Μεταφορά", description: `Η κράτηση μεταφέρθηκε στον ${toUser.name}.` });
-    setOpenDialog(null);
-    setSelectedBooking(null);
-    setTransferTargetUser(null);
-  };
-
-  const handleCancelBooking = (booking: Booking, reason: string = "Ακύρωση από προπονητή") => {
-    setBookings(prevBookings => prevBookings.map(b => 
-      b.id === booking.id ? { ...b, status: 'cancelled', cancellationReason: reason } : b
-    ));
-
-    // Στέλνουμε ειδοποίηση στον ιδιοκτήτη για χαριστική ακύρωση
-    notifyGracefulCancellation(
-      booking.instructor,
-      booking.customerName,
-      booking.id,
-      booking.className
-    );
-
-    toast({ 
-      title: "Κράτηση Ακυρώθηκε", 
-      description: `Η κράτηση ακυρώθηκε και ο ιδιοκτήτης ενημερώθηκε.`,
-      variant: "default"
-    });
-  };
-
-  const todaysBookings = bookings.filter(b => b.date === format(new Date(), "yyyy-MM-dd"));
-  const upcomingBookings = bookings.filter(b => new Date(b.date) > new Date());
-  const waitlistBookings = bookings.filter(b => b.status === "waitlist");
+  // Stats calculations
+  const todayBookings = bookings.filter(booking => 
+    booking.date === format(new Date(), "yyyy-MM-dd")
+  );
+  const confirmedBookings = todayBookings.filter(booking => booking.status === "confirmed");
+  const completedBookings = todayBookings.filter(booking => booking.status === "completed");
+  const cancelledBookings = todayBookings.filter(booking => booking.status === "cancelled");
 
   return (
     <SidebarProvider>
@@ -232,201 +315,353 @@ export function BookingsPage() {
         <AdminSidebar />
         <div className="flex-1 flex flex-col">
           <AdminHeader />
-          <Dialog open={openDialog !== null} onOpenChange={() => setOpenDialog(null)}>
-            <main className="flex-1 p-6 space-y-6">
-              <div className="flex justify-between items-center">
-                <div>
-                  <h1 className="text-3xl font-bold text-foreground">Κρατήσεις & Check-in</h1>
-                  <p className="text-muted-foreground">Διαχείριση κρατήσεων και καταγραφή παρουσίας πελατών.</p>
-                </div>
-                <Button onClick={() => setOpenDialog('new')}>
-                    <Plus className="mr-2 h-4 w-4" />
+          <main className="flex-1 p-6 space-y-6">
+            {/* Header */}
+            <div className="flex justify-between items-center">
+              <div>
+                <h1 className="text-3xl font-bold text-foreground">Κρατήσεις</h1>
+                <p className="text-muted-foreground">
+                  Διαχείριση κρατήσεων και προγραμματισμού μαθημάτων
+                </p>
+              </div>
+              <Dialog open={openDialog === 'new'} onOpenChange={(open) => setOpenDialog(open ? 'new' : null)}>
+                <DialogTrigger asChild>
+                  <Button className="bg-primary hover:bg-primary/90">
+                    <Plus className="h-4 w-4 mr-2" />
                     Νέα Κράτηση
-                </Button>
-              </div>
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-md">
+                  <DialogHeader>
+                    <DialogTitle>Νέα Κράτηση</DialogTitle>
+                    <DialogDescription>
+                      Δημιουργήστε μια νέα κράτηση για πελάτη
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="grid gap-4 py-4">
+                    <div>
+                      <label className="text-sm font-medium">Πελάτης (προαιρετικό)</label>
+                      <Select value={newBookingData.userId} onValueChange={handleUserChange}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Επιλέξτε πελάτη" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {users.map((user) => (
+                            <SelectItem key={user.id} value={user.id}>
+                              {user.name} ({user.email})
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium">Όνομα *</label>
+                      <Input
+                        value={newBookingData.customer_name}
+                        onChange={(e) => handleInputChange('customer_name', e.target.value)}
+                        placeholder="Όνομα πελάτη"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium">Email *</label>
+                      <Input
+                        type="email"
+                        value={newBookingData.customer_email}
+                        onChange={(e) => handleInputChange('customer_email', e.target.value)}
+                        placeholder="email@example.com"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium">Μάθημα *</label>
+                      <Select value={newBookingData.className} onValueChange={(value) => {
+                        const selectedClass = classes.find(c => c.name === value);
+                        if (selectedClass) {
+                          handleInputChange('className', value);
+                          handleInputChange('instructor', selectedClass.instructor?.name || selectedClass.instructor);
+                        }
+                      }}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Επιλέξτε μάθημα" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {classes.map((cls) => (
+                            <SelectItem key={cls.id} value={cls.name}>
+                              {cls.name} - {cls.instructor?.name || cls.instructor}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium">Ημερομηνία *</label>
+                      <Input
+                        type="date"
+                        value={newBookingData.date}
+                        onChange={(e) => handleInputChange('date', e.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium">Ώρα *</label>
+                      <Input
+                        type="time"
+                        value={newBookingData.time}
+                        onChange={(e) => handleInputChange('time', e.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium">Τύπος *</label>
+                      <Select value={newBookingData.type} onValueChange={(value) => handleInputChange('type', value)}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Επιλέξτε τύπο" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="group">Ομαδικό Μάθημα</SelectItem>
+                          <SelectItem value="personal">Personal Training</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  <div className="flex justify-end space-x-2">
+                    <Button variant="outline" onClick={() => setOpenDialog(null)}>
+                      Ακύρωση
+                    </Button>
+                    <Button onClick={handleCreateBooking} disabled={isCreating}>
+                      {isCreating ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Δημιουργία...
+                        </>
+                      ) : (
+                        "Δημιουργία"
+                      )}
+                    </Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
+            </div>
 
-              <div className="grid gap-4 md:grid-cols-3">
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Σημερινές Κρατήσεις</CardTitle>
-                    <Calendar className="h-4 w-4 text-muted-foreground" />
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">{todaysBookings.length}</div>
-                    <p className="text-xs text-muted-foreground">
-                      {todaysBookings.filter(b => b.status === 'confirmed').length} επιβεβαιωμένες
-                    </p>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Επερχόμενες</CardTitle>
-                    <Clock className="h-4 w-4 text-muted-foreground" />
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">{upcomingBookings.length}</div>
-                    <p className="text-xs text-muted-foreground">
-                      στις επόμενες 7 ημέρες
-                    </p>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Σε Λίστα Αναμονής</CardTitle>
-                    <Users className="h-4 w-4 text-muted-foreground" />
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">{waitlistBookings.length}</div>
-                     <p className="text-xs text-muted-foreground">
-                      αναμένουν για μια θέση
-                    </p>
-                  </CardContent>
-                </Card>
-              </div>
-              
+            {/* Stats Cards */}
+            <div className="grid gap-4 md:grid-cols-4">
               <Card>
-                  <CardHeader>
-                    <div className="flex justify-between items-center">
-                        <CardTitle>Λίστα Κρατήσεων</CardTitle>
-                        <div className="flex items-center gap-2">
-                            <div className="relative w-64">
-                                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                                <Input 
-                                    placeholder="Αναζήτηση πελάτη, μαθήματος..." 
-                                    className="pl-8"
-                                    value={searchTerm}
-                                    onChange={(e) => setSearchTerm(e.target.value)}
-                                />
-                            </div>
-                            <Select value={selectedDate} onValueChange={setSelectedDate}>
-                                <SelectTrigger className="w-[180px]">
-                                    <SelectValue placeholder="Επιλογή Ημερομηνίας" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="all">Όλες</SelectItem>
-                                    <SelectItem value="today">Σήμερα</SelectItem>
-                                    <SelectItem value="upcoming">Επερχόμενες</SelectItem>
-                                </SelectContent>
-                            </Select>
-                            <Select value={statusFilter} onValueChange={setStatusFilter}>
-                                <SelectTrigger className="w-[180px]">
-                                    <SelectValue placeholder="Κατάσταση" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="all">Όλες</SelectItem>
-                                    <SelectItem value="confirmed">Επιβεβαιωμένες</SelectItem>
-                                    <SelectItem value="pending">Εκκρεμείς</SelectItem>
-                                    <SelectItem value="cancelled">Ακυρωμένες</SelectItem>
-                                    <SelectItem value="waitlist">Λίστα Αναμονής</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Σημερινές Κρατήσεις</CardTitle>
+                  <Calendar className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  {isLoading ? (
+                    <div className="flex items-center space-x-2">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <span className="text-sm text-muted-foreground">Φόρτωση...</span>
                     </div>
-                  </CardHeader>
-                  <CardContent>
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Πελάτης</TableHead>
-                          <TableHead>Μάθημα/Υπηρεσία</TableHead>
-                          <TableHead>Ημερομηνία & Ώρα</TableHead>
-                          <TableHead>Κατάσταση</TableHead>
-                          <TableHead className="text-center">Παρουσία</TableHead>
-                          <TableHead className="text-right">Ενέργειες</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {filteredBookings.map((booking) => (
-                          <TableRow key={booking.id}>
-                            <TableCell>
-                              <div className="flex items-center gap-2">
-                                <Avatar className="h-8 w-8">
-                                  <AvatarImage src={booking.avatar ?? undefined} />
-                                  <AvatarFallback>{booking.customerName.split(' ').map(n => n[0]).join('')}</AvatarFallback>
-                                </Avatar>
-                                <div>
-                                  <div className="font-medium">{booking.customerName}</div>
-                                  <div className="text-sm text-muted-foreground">{booking.customerEmail}</div>
-                                </div>
-                              </div>
-                            </TableCell>
-                            <TableCell>
-                              <div>{booking.className}</div>
-                              <div className="text-sm text-muted-foreground">{booking.instructor}</div>
-                            </TableCell>
-                            <TableCell>{format(new Date(booking.date), "dd/MM/yyyy")} στις {booking.time}</TableCell>
-                            <TableCell>{getStatusBadge(booking.status)}</TableCell>
-                            <TableCell className="text-center">{getAttendanceBadge(booking.attended)}</TableCell>
-                            <TableCell className="text-right">
-                                <div className="flex items-center justify-end gap-1">
-                                  <Button variant="outline" size="icon" onClick={() => markAttendance(booking.id, true)} disabled={booking.attended !== null || booking.status === 'cancelled'} title="Check-in">
-                                      <CheckCircle className="h-4 w-4 text-green-600"/>
-                                  </Button>
-                                  <Button variant="outline" size="icon" onClick={() => markAttendance(booking.id, false)} disabled={booking.attended !== null || booking.status === 'cancelled'} title="Απών">
-                                      <XCircle className="h-4 w-4 text-red-600"/>
-                                  </Button>
-                                  <Button variant="outline" size="icon" onClick={() => { setSelectedBooking(booking); setOpenDialog('transfer'); }} disabled={booking.status === 'cancelled'} title="Μεταφορά">
-                                      <ArrowRightLeft className="h-4 w-4"/>
-                                  </Button>
-                                  <Button variant="outline" size="icon" onClick={() => handleCancelBooking(booking)} disabled={booking.status === 'cancelled'} title="Ακύρωση">
-                                      <X className="h-4 w-4 text-red-600"/>
-                                  </Button>
-                                </div>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </CardContent>
+                  ) : (
+                    <>
+                      <div className="text-2xl font-bold">{todayBookings.length}</div>
+                      <p className="text-xs text-muted-foreground">
+                        {confirmedBookings.length} επιβεβαιωμένες
+                      </p>
+                    </>
+                  )}
+                </CardContent>
               </Card>
-
-              <DialogContent onOpenAutoFocus={(e) => e.preventDefault()}>
-                {openDialog === 'new' && (
-                  <>
-                    <DialogHeader><DialogTitle>Νέα Κράτηση</DialogTitle><DialogDescription>Προσθέστε έναν πελάτη σε ένα μάθημα ή ραντεβού.</DialogDescription></DialogHeader>
-                    <div className="grid gap-4 py-4">
-                        <Select onValueChange={(value) => handleInputChange('userId', value)}><SelectTrigger><SelectValue placeholder="Επιλογή Πελάτη" /></SelectTrigger><SelectContent>{mockUsersData.map(user => (<SelectItem key={user.id} value={user.id}>{user.name}</SelectItem>))}</SelectContent></Select>
-                        
-                        <Select onValueChange={handleClassChange}>
-                          <SelectTrigger><SelectValue placeholder="Επιλογή Μαθήματος" /></SelectTrigger>
-                          <SelectContent>
-                            {mockClassesData.map(c => (
-                              <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-
-                        <Select onValueChange={(value) => handleInputChange('instructor', value)} value={newBookingData.instructor}>
-                          <SelectTrigger><SelectValue placeholder="Επιλογή Προπονητή" /></SelectTrigger>
-                          <SelectContent>
-                            {mockInstructorsData.map(instructor => (
-                              <SelectItem key={instructor.id} value={instructor.name}>{instructor.name}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        
-                        <div className="grid grid-cols-2 gap-4">
-                          <Input type="date" value={newBookingData.date} onChange={(e) => handleInputChange('date', e.target.value)} />
-                          <Input type="time" value={newBookingData.time} onChange={(e) => handleInputChange('time', e.target.value)} />
-                        </div>
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Ολοκληρωμένες</CardTitle>
+                  <CheckCircle className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  {isLoading ? (
+                    <div className="flex items-center space-x-2">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <span className="text-sm text-muted-foreground">Φόρτωση...</span>
                     </div>
-                    <Button onClick={handleCreateBooking}>Δημιουργία Κράτησης</Button>
-                  </>
-                )}
-                {openDialog === 'transfer' && (
-                  <>
-                    <DialogHeader><DialogTitle>Μεταφορά Κράτησης</DialogTitle><DialogDescription>Επιλέξτε σε ποιον πελάτη θα μεταφερθεί η κράτηση για το μάθημα "{selectedBooking?.className}".</DialogDescription></DialogHeader>
-                    <div className="py-4">
-                        <Select onValueChange={setTransferTargetUser}><SelectTrigger><SelectValue placeholder="Επιλογή Πελάτη..." /></SelectTrigger><SelectContent>{mockUsersData.filter(user => user.id !== selectedBooking?.userId).map(user => (<SelectItem key={user.id} value={user.id}>{user.name}</SelectItem>))}</SelectContent></Select>
+                  ) : (
+                    <>
+                      <div className="text-2xl font-bold">{completedBookings.length}</div>
+                      <p className="text-xs text-muted-foreground">
+                        σήμερα
+                      </p>
+                    </>
+                  )}
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Ακυρωμένες</CardTitle>
+                  <XCircle className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  {isLoading ? (
+                    <div className="flex items-center space-x-2">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <span className="text-sm text-muted-foreground">Φόρτωση...</span>
                     </div>
-                    <Button onClick={handleTransfer} disabled={!transferTargetUser}>Επιβεβαίωση Μεταφοράς</Button>
-                  </>
+                  ) : (
+                    <>
+                      <div className="text-2xl font-bold">{cancelledBookings.length}</div>
+                      <p className="text-xs text-muted-foreground">
+                        σήμερα
+                      </p>
+                    </>
+                  )}
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Ποσοστό Παρουσίας</CardTitle>
+                  <Users className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  {isLoading ? (
+                    <div className="flex items-center space-x-2">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <span className="text-sm text-muted-foreground">Φόρτωση...</span>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="text-2xl font-bold">
+                        {todayBookings.length > 0 ? 
+                          Math.round((completedBookings.length / todayBookings.length) * 100) : 0}%
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        σήμερα
+                      </p>
+                    </>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Filters */}
+            <div className="flex flex-col sm:flex-row gap-4">
+              <div className="flex-1">
+                <div className="relative">
+                  <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Αναζήτηση κρατήσεων..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-8"
+                  />
+                </div>
+              </div>
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-full sm:w-[200px]">
+                  <SelectValue placeholder="Κατάσταση" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Όλες οι καταστάσεις</SelectItem>
+                  <SelectItem value="confirmed">Επιβεβαιωμένες</SelectItem>
+                  <SelectItem value="pending">Εκκρεμείς</SelectItem>
+                  <SelectItem value="completed">Ολοκληρωμένες</SelectItem>
+                  <SelectItem value="cancelled">Ακυρωμένες</SelectItem>
+                  <SelectItem value="waitlist">Λίστα Αναμονής</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select value={selectedDate} onValueChange={setSelectedDate}>
+                <SelectTrigger className="w-full sm:w-[200px]">
+                  <SelectValue placeholder="Ημερομηνία" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Όλες οι ημερομηνίες</SelectItem>
+                  <SelectItem value="today">Σήμερα</SelectItem>
+                  <SelectItem value="tomorrow">Αύριο</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Bookings Table */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Λίστα Κρατήσεων</CardTitle>
+                <CardDescription>
+                  Διαχειριστείτε όλες τις κρατήσεις και το πρόγραμμα των πελατών
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Πελάτης</TableHead>
+                      <TableHead>Μάθημα</TableHead>
+                      <TableHead>Προπονητής</TableHead>
+                      <TableHead>Ημερομηνία & Ώρα</TableHead>
+                      <TableHead>Τύπος</TableHead>
+                      <TableHead>Κατάσταση</TableHead>
+                      <TableHead>Ενέργειες</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredBookings.map((booking) => (
+                      <TableRow key={booking.id}>
+                        <TableCell>
+                          <div className="flex items-center space-x-3">
+                            <Avatar className="h-8 w-8">
+                              <AvatarImage src={booking.avatar} />
+                              <AvatarFallback>
+                                {booking.customer_name?.slice(0, 2).toUpperCase()}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div>
+                              <div className="font-medium">{booking.customer_name}</div>
+                              <div className="text-sm text-muted-foreground">
+                                {booking.customer_email}
+                              </div>
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="font-medium">{booking.class_name}</div>
+                          <div className="text-sm text-muted-foreground">{booking.location}</div>
+                        </TableCell>
+                        <TableCell>{booking.instructor}</TableCell>
+                        <TableCell>
+                          <div className="text-sm">
+                            <div>{booking.date}</div>
+                            <div className="text-muted-foreground">{booking.time}</div>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          {getTypeBadge(booking.type)}
+                        </TableCell>
+                        <TableCell>
+                          {getStatusBadge(booking.status)}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center space-x-2">
+                            {booking.status === 'confirmed' && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleCheckIn(booking.id)}
+                              >
+                                <CheckCircle className="h-4 w-4" />
+                              </Button>
+                            )}
+                            {(booking.status === 'confirmed' || booking.status === 'pending') && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleCancelBooking(booking.id)}
+                              >
+                                <XCircle className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+                {filteredBookings.length === 0 && !isLoading && (
+                  <div className="text-center py-4 text-muted-foreground">
+                    Δεν βρέθηκαν κρατήσεις με τα τρέχοντα φίλτρα
+                  </div>
                 )}
-              </DialogContent>
-            </main>
-          </Dialog>
+              </CardContent>
+            </Card>
+          </main>
         </div>
       </div>
     </SidebarProvider>
   );
-} 
+}

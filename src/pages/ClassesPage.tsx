@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { AdminSidebar } from "@/components/AdminSidebar";
 import { AdminHeader } from "@/components/AdminHeader";
@@ -49,14 +49,12 @@ import {
   Trash2,
   MapPin,
   User,
+  Loader2,
 } from "lucide-react";
 import { mockClassesData, mockInstructorsData } from "@/data/mockData";
 import type { Class, Instructor } from "@/data/mockData";
-
-// Mock data για μαθήματα
-const mockClasses = mockClassesData;
-
-const instructors = mockInstructorsData;
+import { classesApi, instructorsApi } from "@/services/api";
+import { useToast } from "@/hooks/use-toast";
 
 const classTypes = [
   { value: "group", label: "Ομαδικό Μάθημα" },
@@ -72,7 +70,10 @@ const timeSlots = [
 ];
 
 export function ClassesPage() {
-  const [classes, setClasses] = useState(mockClasses);
+  const [classes, setClasses] = useState([]);
+  const [instructors, setInstructors] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isCreating, setIsCreating] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [formData, setFormData] = useState({
@@ -86,6 +87,34 @@ export function ClassesPage() {
     location: "",
     description: "",
   });
+  const { toast } = useToast();
+
+  // Fetch data on component mount
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setIsLoading(true);
+        const [classesResponse, instructorsResponse] = await Promise.all([
+          classesApi.getAll(),
+          instructorsApi.getAll()
+        ]);
+        
+        setClasses(classesResponse.data || classesResponse || []);
+        setInstructors(instructorsResponse.data || instructorsResponse || []);
+      } catch (error) {
+        console.error('Error fetching data:', error);
+        toast({
+          title: "Σφάλμα",
+          description: "Αποτυχία φόρτωσης δεδομένων. Παρακαλώ δοκιμάστε ξανά.",
+          variant: "destructive",
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    fetchData();
+  }, [toast]);
 
   const todaysClasses = classes.filter(
     cls => cls.date === format(new Date(), "yyyy-MM-dd")
@@ -95,25 +124,55 @@ export function ClassesPage() {
     cls => cls.date === format(selectedDate, "yyyy-MM-dd")
   );
 
-  const handleCreateClass = () => {
-    const newClass: Class = {
-      id: Date.now().toString(),
-      name: formData.name,
-      type: formData.type,
-      instructor: formData.instructor,
-      date: format(formData.date, "yyyy-MM-dd"),
-      time: formData.time,
-      duration: formData.duration,
-      maxParticipants: formData.maxParticipants,
-      currentParticipants: 0,
-      location: formData.location,
-      description: formData.description,
-      status: "active" as const,
-    };
+  const handleCreateClass = async () => {
+    try {
+      setIsCreating(true);
+      
+      const newClassData = {
+        name: formData.name,
+        type: formData.type,
+        instructor_id: formData.instructor,
+        date: format(formData.date, "yyyy-MM-dd"),
+        time: formData.time,
+        duration: formData.duration,
+        max_participants: formData.maxParticipants,
+        location: formData.location,
+        description: formData.description,
+      };
 
-    setClasses([...classes, newClass]);
-    setIsDialogOpen(false);
-    resetForm();
+      const response = await classesApi.create(newClassData);
+      const newClass = response.data || response;
+      
+      setClasses([...classes, newClass]);
+      setIsDialogOpen(false);
+
+      toast({
+        title: "Επιτυχία!",
+        description: `Το μάθημα ${formData.name} δημιουργήθηκε με επιτυχία.`,
+      });
+
+      // Reset form
+      setFormData({
+        name: "",
+        type: "",
+        instructor: "",
+        date: new Date(),
+        time: "",
+        duration: 60,
+        maxParticipants: 12,
+        location: "",
+        description: "",
+      });
+    } catch (error) {
+      console.error('Error creating class:', error);
+      toast({
+        title: "Σφάλμα",
+        description: "Αποτυχία δημιουργίας μαθήματος. Παρακαλώ δοκιμάστε ξανά.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsCreating(false);
+    }
   };
 
   const resetForm = () => {
@@ -213,7 +272,7 @@ export function ClassesPage() {
                           </SelectTrigger>
                           <SelectContent>
                             {instructors.map((instructor) => (
-                              <SelectItem key={instructor.id} value={instructor.name}>
+                              <SelectItem key={instructor.id} value={instructor.id}>
                                 {instructor.name}
                               </SelectItem>
                             ))}
@@ -307,8 +366,15 @@ export function ClassesPage() {
                     <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
                       Ακύρωση
                     </Button>
-                    <Button onClick={handleCreateClass}>
-                      Δημιουργία Μαθήματος
+                    <Button onClick={handleCreateClass} disabled={isCreating}>
+                      {isCreating ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Δημιουργία...
+                        </>
+                      ) : (
+                        "Δημιουργία Μαθήματος"
+                      )}
                     </Button>
                   </div>
                 </DialogContent>
@@ -323,10 +389,19 @@ export function ClassesPage() {
                   <CalendarIcon className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{todaysClasses.length}</div>
-                  <p className="text-xs text-muted-foreground">
-                    {todaysClasses.filter(c => c.status === 'active').length} ενεργά
-                  </p>
+                  {isLoading ? (
+                    <div className="flex items-center space-x-2">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <span className="text-sm text-muted-foreground">Φόρτωση...</span>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="text-2xl font-bold">{todaysClasses.length}</div>
+                      <p className="text-xs text-muted-foreground">
+                        {todaysClasses.filter(c => c.status === 'active').length} ενεργά
+                      </p>
+                    </>
+                  )}
                 </CardContent>
               </Card>
               <Card>
@@ -335,12 +410,21 @@ export function ClassesPage() {
                   <Users className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">
-                    {todaysClasses.reduce((sum, cls) => sum + cls.currentParticipants, 0)}
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    από {todaysClasses.reduce((sum, cls) => sum + cls.maxParticipants, 0)} διαθέσιμες θέσεις
-                  </p>
+                  {isLoading ? (
+                    <div className="flex items-center space-x-2">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <span className="text-sm text-muted-foreground">Φόρτωση...</span>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="text-2xl font-bold">
+                        {todaysClasses.reduce((sum, cls) => sum + (cls.current_participants || cls.currentParticipants || 0), 0)}
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        από {todaysClasses.reduce((sum, cls) => sum + (cls.max_participants || cls.maxParticipants || 0), 0)} διαθέσιμες θέσεις
+                      </p>
+                    </>
+                  )}
                 </CardContent>
               </Card>
               <Card>
@@ -349,10 +433,19 @@ export function ClassesPage() {
                   <User className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{instructors.length}</div>
-                  <p className="text-xs text-muted-foreground">
-                    διαθέσιμοι σήμερα
-                  </p>
+                  {isLoading ? (
+                    <div className="flex items-center space-x-2">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <span className="text-sm text-muted-foreground">Φόρτωση...</span>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="text-2xl font-bold">{instructors.length}</div>
+                      <p className="text-xs text-muted-foreground">
+                        διαθέσιμοι σήμερα
+                      </p>
+                    </>
+                  )}
                 </CardContent>
               </Card>
               <Card>
@@ -361,14 +454,23 @@ export function ClassesPage() {
                   <Clock className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">
-                    {todaysClasses.length > 0 ? 
-                      Math.round((todaysClasses.reduce((sum, cls) => sum + cls.currentParticipants, 0) / 
-                      todaysClasses.reduce((sum, cls) => sum + cls.maxParticipants, 0)) * 100) : 0}%
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    μέσος όρος πληρότητας
-                  </p>
+                  {isLoading ? (
+                    <div className="flex items-center space-x-2">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <span className="text-sm text-muted-foreground">Φόρτωση...</span>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="text-2xl font-bold">
+                        {todaysClasses.length > 0 ? 
+                          Math.round((todaysClasses.reduce((sum, cls) => sum + (cls.current_participants || cls.currentParticipants || 0), 0) / 
+                          todaysClasses.reduce((sum, cls) => sum + (cls.max_participants || cls.maxParticipants || 1), 0)) * 100) : 0}%
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        μέσος όρος πληρότητας
+                      </p>
+                    </>
+                  )}
                 </CardContent>
               </Card>
             </div>
@@ -398,7 +500,7 @@ export function ClassesPage() {
                               </span>
                               <span className="flex items-center gap-1">
                                 <User className="h-3 w-3" />
-                                {cls.instructor}
+                                {cls.instructor?.name || cls.instructor || 'N/A'}
                               </span>
                               <span className="flex items-center gap-1">
                                 <MapPin className="h-3 w-3" />
@@ -407,9 +509,9 @@ export function ClassesPage() {
                             </div>
                           </div>
                           <div className="text-right space-y-1">
-                            {getStatusBadge(cls.status, cls.currentParticipants, cls.maxParticipants)}
+                            {getStatusBadge(cls.status, cls.current_participants || cls.currentParticipants || 0, cls.max_participants || cls.maxParticipants || 0)}
                             <div className="text-sm text-muted-foreground">
-                              {cls.currentParticipants}/{cls.maxParticipants}
+                              {cls.current_participants || cls.currentParticipants || 0}/{cls.max_participants || cls.maxParticipants || 0}
                             </div>
                           </div>
                         </div>
@@ -445,7 +547,7 @@ export function ClassesPage() {
                           <div key={cls.id} className="text-sm p-2 bg-muted rounded">
                             <div className="font-medium">{cls.name}</div>
                             <div className="text-muted-foreground">
-                              {cls.time} - {cls.instructor}
+                              {cls.time} - {cls.instructor?.name || cls.instructor || 'N/A'}
                             </div>
                           </div>
                         ))
@@ -489,7 +591,9 @@ export function ClassesPage() {
                         <TableCell>
                           <Badge variant="outline">{getTypeLabel(cls.type)}</Badge>
                         </TableCell>
-                        <TableCell>{cls.instructor}</TableCell>
+                        <TableCell>
+                          {cls.instructor?.name || cls.instructor || 'N/A'}
+                        </TableCell>
                         <TableCell>
                           <div className="text-sm">
                             <div>{cls.date}</div>
@@ -499,11 +603,11 @@ export function ClassesPage() {
                         <TableCell>{cls.location}</TableCell>
                         <TableCell>
                           <div className="text-sm">
-                            {cls.currentParticipants}/{cls.maxParticipants}
+                            {cls.current_participants || cls.currentParticipants || 0}/{cls.max_participants || cls.maxParticipants || 0}
                           </div>
                         </TableCell>
                         <TableCell>
-                          {getStatusBadge(cls.status, cls.currentParticipants, cls.maxParticipants)}
+                          {getStatusBadge(cls.status, cls.current_participants || cls.currentParticipants || 0, cls.max_participants || cls.maxParticipants || 0)}
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center space-x-2">
@@ -526,4 +630,4 @@ export function ClassesPage() {
       </div>
     </SidebarProvider>
   );
-} 
+}

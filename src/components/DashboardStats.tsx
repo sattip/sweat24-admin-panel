@@ -1,38 +1,85 @@
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Users, Calendar, Package, Star } from "lucide-react";
-
-const stats = [
-  {
-    title: "Συνολικά Μέλη",
-    value: "2,847",
-    change: "+12.5%",
-    changeType: "positive" as const,
-    icon: Users,
-  },
-  {
-    title: "Ενεργά Μαθήματα",
-    value: "156",
-    change: "+8.2%",
-    changeType: "positive" as const,
-    icon: Calendar,
-  },
-  {
-    title: "Μηνιαία Έσοδα",
-    value: "€48,325",
-    change: "+15.8%",
-    changeType: "positive" as const,
-    icon: Package,
-  },
-  {
-    title: "Μέση Αξιολόγηση",
-    value: "4.8",
-    change: "+0.3",
-    changeType: "positive" as const,
-    icon: Star,
-  },
-];
+import { dashboardApi } from "@/services/apiService";
 
 export function DashboardStats() {
+  const [stats, setStats] = useState([
+    {
+      title: "Συνολικά Μέλη",
+      value: "0",
+      change: "+0%",
+      changeType: "positive" as const,
+      icon: Users,
+    },
+    {
+      title: "Ενεργά Μέλη",
+      value: "0",
+      change: "+0%",
+      changeType: "positive" as const,
+      icon: Calendar,
+    },
+    {
+      title: "Μηνιαία Έσοδα",
+      value: "€0",
+      change: "+0%",
+      changeType: "positive" as const,
+      icon: Package,
+    },
+    {
+      title: "Εκκρεμείς Πληρωμές",
+      value: "0",
+      change: "0 ληξιπρόθεσμες",
+      changeType: "neutral" as const,
+      icon: Star,
+    },
+  ]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    loadStats();
+  }, []);
+
+  const loadStats = async () => {
+    try {
+      const data = await dashboardApi.getStats();
+      
+      setStats([
+        {
+          title: "Συνολικά Μέλη",
+          value: data.total_members.toString(),
+          change: "+12.5%",
+          changeType: "positive" as const,
+          icon: Users,
+        },
+        {
+          title: "Ενεργά Μέλη",
+          value: data.active_members.toString(),
+          change: "+8.2%",
+          changeType: "positive" as const,
+          icon: Calendar,
+        },
+        {
+          title: "Μηνιαία Έσοδα",
+          value: `€${data.monthly_revenue.toFixed(2)}`,
+          change: "+15.8%",
+          changeType: "positive" as const,
+          icon: Package,
+        },
+        {
+          title: "Εκκρεμείς Πληρωμές",
+          value: data.pending_payments.toString(),
+          change: `${data.overdue_payments} ληξιπρόθεσμες`,
+          changeType: data.overdue_payments > 0 ? "negative" as const : "neutral" as const,
+          icon: Star,
+        },
+      ]);
+    } catch (error) {
+      console.error('Failed to load dashboard stats:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
   return (
     <div
       className="grid gap-6 md:grid-cols-2 lg:grid-cols-4"
@@ -76,13 +123,15 @@ export function DashboardStats() {
                 className={`font-medium ${
                   stat.changeType === "positive"
                     ? "text-green-600"
-                    : "text-red-600"
+                    : stat.changeType === "negative"
+                    ? "text-red-600"
+                    : "text-gray-600"
                 }`}
                 data-oid="x87732c"
               >
                 {stat.change}
               </span>{" "}
-              από τον προηγούμενο μήνα
+              {stat.title !== "Εκκρεμείς Πληρωμές" ? "από τον προηγούμενο μήνα" : ""}
             </p>
           </CardContent>
         </Card>
