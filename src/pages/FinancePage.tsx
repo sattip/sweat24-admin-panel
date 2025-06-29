@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { AdminSidebar } from "@/components/AdminSidebar";
 import { AdminHeader } from "@/components/AdminHeader";
@@ -53,122 +53,11 @@ import {
   cashRegisterApi, 
   businessExpensesApi 
 } from "@/services/api";
-
-// Mock data για οικονομικά
-const todayRevenue = {
-  total: 2456.50,
-  byService: {
-    group_classes: 856.40,
-    personal_training: 720.00,
-    ems: 480.00,
-    pilates: 320.10,
-    trial_sessions: 80.00, // Δοκιμαστικές ξεχωριστά
-  },
-  byProduct: {
-    supplements: 340.20,
-    ems_gear: 179.98,
-    pilates_accessories: 74.97,
-    cambridge: 139.96,
-    accessories: 59.99,
-  },
-  byPaymentMethod: {
-    iris: 1234.56,
-    pos: 867.43,
-    cash: 354.51,
-  },
-};
-
-const monthlyRevenue = {
-  total: 45890.75,
-  byService: {
-    group_classes: 18456.30,
-    personal_training: 15670.20,
-    ems: 7840.50,
-    pilates: 3123.75,
-    trial_sessions: 800.00,
-  },
-  lastMonth: 41250.30,
-  growth: 11.2,
-};
-
-const todaySessions = {
-  total: 47,
-  byService: {
-    group_classes: 24,
-    personal_training: 12,
-    ems: 8,
-    pilates: 3,
-  },
-  trial_sessions: 4, // Δοκιμαστικές ξεχωριστά
-  completed: 43,
-  cancelled: 4,
-};
-
-const inactiveClients = [
-  {
-    id: "1",
-    name: "Αλέξανδρος Νικολάου",
-    email: "alex@email.com",
-    lastVisit: "2024-03-15",
-    daysSinceVisit: 71,
-    remainingSessions: 5,
-    membershipType: "Premium",
-    phone: "6944123456",
-  },
-  {
-    id: "2",
-    name: "Ελένη Παπαδάκη",
-    email: "eleni@email.com",
-    lastVisit: "2024-04-02",
-    daysSinceVisit: 53,
-    remainingSessions: 0,
-    membershipType: "Basic",
-    phone: "6955234567",
-  },
-  {
-    id: "3",
-    name: "Νίκος Καραγιάννης",
-    email: "nikos@email.com",
-    lastVisit: "2024-02-28",
-    daysSinceVisit: 87,
-    remainingSessions: 8,
-    membershipType: "Personal Training",
-    phone: "6966345678",
-  },
-];
-
-const outstandingDebts = [
-  {
-    id: "1",
-    type: "client",
-    name: "Γιώργος Μιχαηλίδης",
-    amount: 120.00,
-    description: "Μηνιαία συνδρομή Μαρτίου",
-    dueDate: "2024-04-01",
-    overdueDays: 54,
-    phone: "6977456789",
-  },
-  {
-    id: "2",
-    type: "trainer",
-    name: "Άλεξ Ροδρίγκεζ",
-    amount: 45.99,
-    description: "Αγορά Protein Powder",
-    dueDate: "2024-05-20",
-    overdueDays: 4,
-    phone: "6944111222",
-  },
-  {
-    id: "3",
-    type: "client",
-    name: "Μαρίνα Κωστοπούλου",
-    amount: 89.99,
-    description: "Personal Training package",
-    dueDate: "2024-05-15",
-    overdueDays: 9,
-    phone: "6988567890",
-  },
-];
+import type { 
+  PaymentInstallment, 
+  CashRegisterEntry, 
+  BusinessExpense 
+} from "@/data/mockData";
 
 export function FinancePage() {
   const [selectedPeriod, setSelectedPeriod] = useState("today");
@@ -179,61 +68,170 @@ export function FinancePage() {
     monthlyRevenue: 0,
     pendingPayments: 0,
     overduePayments: 0,
-    cashEntries: [],
-    expenses: [],
-    installments: []
+    cashEntries: [] as CashRegisterEntry[],
+    expenses: [] as BusinessExpense[],
+    installments: [] as PaymentInstallment[]
+  });
+  const [todayRevenue, setTodayRevenue] = useState({
+    total: 0,
+    byService: {
+      group_classes: 0,
+      personal_training: 0,
+      ems: 0,
+      pilates: 0,
+      trial_sessions: 0,
+    },
+    byProduct: {
+      supplements: 0,
+      ems_gear: 0,
+      pilates_accessories: 0,
+      cambridge: 0,
+      accessories: 0,
+    },
+    byPaymentMethod: {
+      iris: 0,
+      pos: 0,
+      cash: 0,
+    },
+  });
+  const [monthlyRevenue, setMonthlyRevenue] = useState({
+    total: 0,
+    byService: {
+      group_classes: 0,
+      personal_training: 0,
+      ems: 0,
+      pilates: 0,
+      trial_sessions: 0,
+    },
+    lastMonth: 0,
+    growth: 0,
+  });
+  const [todaySessions, setTodaySessions] = useState({
+    total: 0,
+    byService: {
+      group_classes: 0,
+      personal_training: 0,
+      ems: 0,
+      pilates: 0,
+    },
+    trial_sessions: 0,
+    completed: 0,
+    cancelled: 0,
   });
   const { toast } = useToast();
 
   // Fetch financial data
-  useEffect(() => {
-    const fetchFinancialData = async () => {
-      try {
-        setIsLoading(true);
-        const [dashboardResponse, cashResponse, expensesResponse, installmentsResponse] = await Promise.all([
-          dashboardApi.getStats(),
-          cashRegisterApi.getAll(),
-          businessExpensesApi.getAll(),
-          paymentInstallmentsApi.getAll()
-        ]);
-        
-        setFinancialStats({
-          totalRevenue: dashboardResponse.total_revenue || 0,
-          monthlyRevenue: dashboardResponse.monthly_revenue || 0,
-          pendingPayments: dashboardResponse.pending_payments || 0,
-          overduePayments: dashboardResponse.overdue_payments || 0,
-          cashEntries: cashResponse.data || cashResponse || [],
-          expenses: expensesResponse.data || expensesResponse || [],
-          installments: installmentsResponse.data || installmentsResponse || []
-        });
-      } catch (error) {
-        console.error('Error fetching financial data:', error);
-        toast({
-          title: "Σφάλμα",
-          description: "Αποτυχία φόρτωσης οικονομικών δεδομένων.",
-          variant: "destructive",
-        });
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    
-    fetchFinancialData();
+  const fetchFinancialData = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      const [dashboardResponse, cashResponse, expensesResponse, installmentsResponse] = await Promise.all([
+        dashboardApi.getStats(),
+        cashRegisterApi.getAll({ date_from: format(new Date(), 'yyyy-MM-dd'), date_to: format(new Date(), 'yyyy-MM-dd') }),
+        businessExpensesApi.getAll(),
+        paymentInstallmentsApi.getAll()
+      ]);
+      
+      // Handle API response data
+      const cashEntries = Array.isArray(cashResponse) ? cashResponse : (cashResponse.data || []);
+      const expenses = Array.isArray(expensesResponse) ? expensesResponse : (expensesResponse.data || []);
+      const installments = Array.isArray(installmentsResponse) ? installmentsResponse : (installmentsResponse.data || []);
+      
+      setFinancialStats({
+        totalRevenue: dashboardResponse.total_revenue || 0,
+        monthlyRevenue: dashboardResponse.monthly_revenue || 0,
+        pendingPayments: dashboardResponse.pending_payments || 0,
+        overduePayments: dashboardResponse.overdue_payments || 0,
+        cashEntries: cashEntries,
+        expenses: expenses,
+        installments: installments
+      });
+      
+      // Calculate today's revenue from cash entries
+      const todaysCashEntries = cashEntries.filter((entry: CashRegisterEntry) => {
+        const entryDate = new Date(entry.timestamp);
+        const today = new Date();
+        return entryDate.toDateString() === today.toDateString() && entry.type === 'income';
+      });
+      
+      const todayTotal = todaysCashEntries.reduce((sum: number, entry: CashRegisterEntry) => sum + entry.amount, 0);
+      const todayCash = todaysCashEntries
+        .filter((entry: CashRegisterEntry) => entry.paymentMethod === 'cash')
+        .reduce((sum: number, entry: CashRegisterEntry) => sum + entry.amount, 0);
+      const todayCard = todaysCashEntries
+        .filter((entry: CashRegisterEntry) => entry.paymentMethod === 'card')
+        .reduce((sum: number, entry: CashRegisterEntry) => sum + entry.amount, 0);
+      const todayTransfer = todaysCashEntries
+        .filter((entry: CashRegisterEntry) => entry.paymentMethod === 'transfer')
+        .reduce((sum: number, entry: CashRegisterEntry) => sum + entry.amount, 0);
+      
+      setTodayRevenue(prev => ({
+        ...prev,
+        total: todayTotal,
+        byPaymentMethod: {
+          iris: todayTransfer,
+          pos: todayCard,
+          cash: todayCash
+        }
+      }));
+      
+      // Calculate monthly revenue
+      setMonthlyRevenue(prev => ({
+        ...prev,
+        total: dashboardResponse.monthly_revenue || 0,
+        growth: dashboardResponse.monthly_revenue && dashboardResponse.total_revenue
+          ? ((dashboardResponse.monthly_revenue - dashboardResponse.total_revenue) / dashboardResponse.total_revenue * 100)
+          : 0
+      }));
+      
+    } catch (error) {
+      console.error('Error fetching financial data:', error);
+      toast({
+        title: "Σφάλμα",
+        description: "Αποτυχία φόρτωσης οικονομικών δεδομένων.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   }, [toast]);
+  
+  useEffect(() => {
+    fetchFinancialData();
+  }, [fetchFinancialData]);
 
-  const handleApproveExpense = (expenseId: string) => {
-    toast({
-      title: "Έξοδο Εγκρίθηκε",
-      description: "Το έξοδο εγκρίθηκε επιτυχώς."
-    });
+  const handleApproveExpense = async (expenseId: string) => {
+    try {
+      await businessExpensesApi.update(expenseId, { approved: true });
+      toast({
+        title: "Έξοδο Εγκρίθηκε",
+        description: "Το έξοδο εγκρίθηκε επιτυχώς."
+      });
+      fetchFinancialData(); // Refresh data
+    } catch (error) {
+      toast({
+        title: "Σφάλμα",
+        description: "Αποτυχία έγκρισης εξόδου.",
+        variant: "destructive"
+      });
+    }
   };
 
-  const handleRejectExpense = (expenseId: string) => {
-    toast({
-      title: "Έξοδο Απορρίφθηκε",
-      description: "Το έξοδο απορρίφθηκε και διαγράφηκε.",
-      variant: "destructive"
-    });
+  const handleRejectExpense = async (expenseId: string) => {
+    try {
+      await businessExpensesApi.delete(expenseId);
+      toast({
+        title: "Έξοδο Απορρίφθηκε",
+        description: "Το έξοδο απορρίφθηκε και διαγράφηκε.",
+        variant: "destructive"
+      });
+      fetchFinancialData(); // Refresh data
+    } catch (error) {
+      toast({
+        title: "Σφάλμα",
+        description: "Αποτυχία απόρριψης εξόδου.",
+        variant: "destructive"
+      });
+    }
   };
 
   // Live clock update
@@ -508,7 +506,7 @@ export function FinancePage() {
               <TabsContent value="installments" className="space-y-4">
                 <div className="flex justify-between items-center">
                   <h2 className="text-2xl font-bold">Διαχείριση Δόσεων Πληρωμής</h2>
-                  <PaymentInstallmentsModal />
+                  <PaymentInstallmentsModal onUpdate={fetchFinancialData} />
                 </div>
                 
                 <div className="grid gap-4 md:grid-cols-4">
@@ -584,7 +582,7 @@ export function FinancePage() {
                       <p className="text-muted-foreground mb-4">
                         Καταγράψτε δόσεις πελατών και παρακολουθήστε τα αυτόματα ξεκλειδώματα τιμοκαταλόγου
                       </p>
-                      <PaymentInstallmentsModal />
+                      <PaymentInstallmentsModal onUpdate={fetchFinancialData} />
                     </div>
                   </CardContent>
                 </Card>
@@ -594,7 +592,7 @@ export function FinancePage() {
               <TabsContent value="cashregister" className="space-y-4">
                 <div className="flex justify-between items-center">
                   <h2 className="text-2xl font-bold">Live Ταμείο</h2>
-                  <CashRegisterModal />
+                  <CashRegisterModal onUpdate={fetchFinancialData} />
                 </div>
                 
                 <div className="grid gap-4 md:grid-cols-4">
@@ -672,7 +670,7 @@ export function FinancePage() {
                       <p className="text-muted-foreground mb-4">
                         Καταγράψτε έσοδα και αναλήψεις με άμεση ενημέρωση υπολοίπου
                       </p>
-                      <CashRegisterModal />
+                      <CashRegisterModal onUpdate={fetchFinancialData} />
                     </div>
                   </CardContent>
                 </Card>
@@ -682,7 +680,7 @@ export function FinancePage() {
               <TabsContent value="expenses" className="space-y-4">
                 <div className="flex justify-between items-center">
                   <h2 className="text-2xl font-bold">Καταγραφή Εξόδων</h2>
-                  <BusinessExpenseModal />
+                  <BusinessExpenseModal onUpdate={fetchFinancialData} />
                 </div>
                 
                 <div className="grid gap-4 md:grid-cols-4">
@@ -753,80 +751,55 @@ export function FinancePage() {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        <TableRow>
-                          <TableCell>{format(new Date(), 'dd/MM/yyyy', { locale: el })}</TableCell>
-                          <TableCell>
-                            <Badge variant="outline">Λειτουργικά</Badge>
-                          </TableCell>
-                          <TableCell>Λογαριασμός ΔΕΗ Μαΐου</TableCell>
-                          <TableCell>ΔΕΗ</TableCell>
-                          <TableCell className="font-bold">€320.00</TableCell>
-                          <TableCell>
-                            <Badge variant="default" className="bg-green-100 text-green-800">
-                              Εγκεκριμένο
-                            </Badge>
-                          </TableCell>
-                          <TableCell>
-                            <Button variant="outline" size="sm">
-                              <FileText className="h-4 w-4 mr-1" />
-                              Απόδειξη
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                        <TableRow>
-                          <TableCell>22/05/2024</TableCell>
-                          <TableCell>
-                            <Badge variant="outline">Εξοπλισμός</Badge>
-                          </TableCell>
-                          <TableCell>Επισκευή treadmill #3</TableCell>
-                          <TableCell>TechnoGym Service</TableCell>
-                          <TableCell className="font-bold">€150.00</TableCell>
-                          <TableCell>
-                            <Badge variant="default" className="bg-green-100 text-green-800">
-                              Εγκεκριμένο
-                            </Badge>
-                          </TableCell>
-                          <TableCell>
-                            <Button variant="outline" size="sm">
-                              <FileText className="h-4 w-4 mr-1" />
-                              Απόδειξη
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                        <TableRow>
-                          <TableCell>23/05/2024</TableCell>
-                          <TableCell>
-                            <Badge variant="outline">Αναλώσιμα</Badge>
-                          </TableCell>
-                          <TableCell>Καθαριστικά προϊόντα</TableCell>
-                          <TableCell>CleanPro</TableCell>
-                          <TableCell className="font-bold">€80.00</TableCell>
-                          <TableCell>
-                            <Badge variant="secondary">
-                              Εκκρεμεί έγκριση
-                            </Badge>
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex gap-1">
-                              <Button 
-                                variant="outline" 
-                                size="sm"
-                                className="bg-green-50 border-green-200 text-green-700 hover:bg-green-100"
-                                onClick={() => handleApproveExpense("exp_3")}
-                              >
-                                Έγκριση
-                              </Button>
-                              <Button 
-                                variant="outline" 
-                                size="sm"
-                                className="bg-red-50 border-red-200 text-red-700 hover:bg-red-100"
-                                onClick={() => handleRejectExpense("exp_3")}
-                              >
-                                Απόρριψη
-                              </Button>
-                            </div>
-                          </TableCell>
-                        </TableRow>
+                        {financialStats.expenses.slice(0, 10).map((expense) => (
+                          <TableRow key={expense.id}>
+                            <TableCell>{format(new Date(expense.date), 'dd/MM/yyyy', { locale: el })}</TableCell>
+                            <TableCell>
+                              <Badge variant="outline">{expense.category}</Badge>
+                            </TableCell>
+                            <TableCell>{expense.description}</TableCell>
+                            <TableCell>{expense.vendor || '-'}</TableCell>
+                            <TableCell className="font-bold">€{expense.amount.toFixed(2)}</TableCell>
+                            <TableCell>
+                              {expense.approved ? (
+                                <Badge variant="default" className="bg-green-100 text-green-800">
+                                  Εγκεκριμένο
+                                </Badge>
+                              ) : (
+                                <Badge variant="secondary">
+                                  Εκκρεμεί έγκριση
+                                </Badge>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              {!expense.approved ? (
+                                <div className="flex gap-1">
+                                  <Button 
+                                    variant="outline" 
+                                    size="sm"
+                                    className="bg-green-50 border-green-200 text-green-700 hover:bg-green-100"
+                                    onClick={() => handleApproveExpense(expense.id)}
+                                  >
+                                    Έγκριση
+                                  </Button>
+                                  <Button 
+                                    variant="outline" 
+                                    size="sm"
+                                    className="bg-red-50 border-red-200 text-red-700 hover:bg-red-100"
+                                    onClick={() => handleRejectExpense(expense.id)}
+                                  >
+                                    Απόρριψη
+                                  </Button>
+                                </div>
+                              ) : (
+                                <Button variant="outline" size="sm">
+                                  <FileText className="h-4 w-4 mr-1" />
+                                  Απόδειξη
+                                </Button>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        ))}
                       </TableBody>
                     </Table>
                   </CardContent>

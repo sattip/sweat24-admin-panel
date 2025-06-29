@@ -1,4 +1,5 @@
 import { apiRequest, API_CONFIG } from '../config/api';
+import { mockGlobalSearch } from './mockSearchService';
 import type { 
   User, 
   Package, 
@@ -8,7 +9,12 @@ import type {
   PaymentInstallment,
   CashRegisterEntry,
   BusinessExpense,
-  UserPackage 
+  UserPackage,
+  Settings,
+  Assessment,
+  BodyMeasurement,
+  EnduranceTest,
+  StrengthLog
 } from '../data/mockData';
 
 // Users API
@@ -311,5 +317,181 @@ export const dashboardApi = {
     overdue_payments: number;
   }> => {
     return apiRequest(API_CONFIG.ENDPOINTS.DASHBOARD_STATS);
+  },
+};
+
+// User Packages API
+export const userPackagesApi = {
+  getAll: async (userId?: string): Promise<UserPackage[]> => {
+    const endpoint = userId 
+      ? `${API_CONFIG.ENDPOINTS.USER_PACKAGES}?user_id=${userId}`
+      : API_CONFIG.ENDPOINTS.USER_PACKAGES;
+    return apiRequest(endpoint);
+  },
+
+  getById: async (id: string): Promise<UserPackage> => {
+    return apiRequest(`${API_CONFIG.ENDPOINTS.USER_PACKAGES}/${id}`);
+  },
+
+  create: async (userPackageData: Partial<UserPackage>): Promise<UserPackage> => {
+    return apiRequest(API_CONFIG.ENDPOINTS.USER_PACKAGES, {
+      method: 'POST',
+      body: JSON.stringify(userPackageData),
+    });
+  },
+
+  update: async (id: string, userPackageData: Partial<UserPackage>): Promise<UserPackage> => {
+    return apiRequest(`${API_CONFIG.ENDPOINTS.USER_PACKAGES}/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(userPackageData),
+    });
+  },
+
+  delete: async (id: string): Promise<{ message: string }> => {
+    return apiRequest(`${API_CONFIG.ENDPOINTS.USER_PACKAGES}/${id}`, {
+      method: 'DELETE',
+    });
+  },
+
+  assignPackage: async (userId: string, packageId: string): Promise<UserPackage> => {
+    return apiRequest(`${API_CONFIG.ENDPOINTS.USER_PACKAGES}/assign`, {
+      method: 'POST',
+      body: JSON.stringify({ user_id: userId, package_id: packageId }),
+    });
+  },
+
+  extendPackage: async (id: string, days: number): Promise<UserPackage> => {
+    return apiRequest(`${API_CONFIG.ENDPOINTS.USER_PACKAGES}/${id}/extend`, {
+      method: 'POST',
+      body: JSON.stringify({ days }),
+    });
+  },
+
+  pausePackage: async (id: string): Promise<UserPackage> => {
+    return apiRequest(`${API_CONFIG.ENDPOINTS.USER_PACKAGES}/${id}/pause`, {
+      method: 'POST',
+    });
+  },
+
+  resumePackage: async (id: string): Promise<UserPackage> => {
+    return apiRequest(`${API_CONFIG.ENDPOINTS.USER_PACKAGES}/${id}/resume`, {
+      method: 'POST',
+    });
+  },
+};
+
+// Settings API
+export const settingsApi = {
+  get: async (): Promise<Settings> => {
+    return apiRequest(API_CONFIG.ENDPOINTS.SETTINGS);
+  },
+
+  update: async (settings: Partial<Settings>): Promise<Settings> => {
+    return apiRequest(API_CONFIG.ENDPOINTS.SETTINGS, {
+      method: 'PUT',
+      body: JSON.stringify(settings),
+    });
+  },
+
+  updateGym: async (gymSettings: Partial<Settings['gym']>): Promise<Settings> => {
+    return apiRequest(`${API_CONFIG.ENDPOINTS.SETTINGS}/gym`, {
+      method: 'PATCH',
+      body: JSON.stringify(gymSettings),
+    });
+  },
+
+  updateSystem: async (systemSettings: Partial<Settings['system']>): Promise<Settings> => {
+    return apiRequest(`${API_CONFIG.ENDPOINTS.SETTINGS}/system`, {
+      method: 'PATCH',
+      body: JSON.stringify(systemSettings),
+    });
+  },
+
+  updatePricing: async (pricingSettings: Partial<Settings['pricing']>): Promise<Settings> => {
+    return apiRequest(`${API_CONFIG.ENDPOINTS.SETTINGS}/pricing`, {
+      method: 'PATCH',
+      body: JSON.stringify(pricingSettings),
+    });
+  },
+};
+
+// Assessments API
+export const assessmentsApi = {
+  getAll: async (params?: { clientId?: string; type?: string; date_from?: string; date_to?: string }): Promise<Assessment[]> => {
+    const queryParams = new URLSearchParams();
+    if (params?.clientId) queryParams.append('client_id', params.clientId);
+    if (params?.type) queryParams.append('type', params.type);
+    if (params?.date_from) queryParams.append('date_from', params.date_from);
+    if (params?.date_to) queryParams.append('date_to', params.date_to);
+    
+    const endpoint = `${API_CONFIG.ENDPOINTS.ASSESSMENTS}${queryParams.toString() ? '?' + queryParams.toString() : ''}`;
+    return apiRequest(endpoint);
+  },
+
+  getById: async (id: string): Promise<Assessment> => {
+    return apiRequest(`${API_CONFIG.ENDPOINTS.ASSESSMENTS}/${id}`);
+  },
+
+  getByClient: async (clientId: string): Promise<Assessment[]> => {
+    return apiRequest(`${API_CONFIG.ENDPOINTS.ASSESSMENTS}/client/${clientId}`);
+  },
+
+  createBodyMeasurement: async (data: BodyMeasurement): Promise<Assessment> => {
+    return apiRequest(`${API_CONFIG.ENDPOINTS.ASSESSMENTS}/body`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  createEnduranceTest: async (data: EnduranceTest): Promise<Assessment> => {
+    return apiRequest(`${API_CONFIG.ENDPOINTS.ASSESSMENTS}/endurance`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  createStrengthLog: async (data: StrengthLog): Promise<Assessment> => {
+    return apiRequest(`${API_CONFIG.ENDPOINTS.ASSESSMENTS}/strength`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  update: async (id: string, data: Partial<Assessment>): Promise<Assessment> => {
+    return apiRequest(`${API_CONFIG.ENDPOINTS.ASSESSMENTS}/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
+
+  delete: async (id: string): Promise<{ message: string }> => {
+    return apiRequest(`${API_CONFIG.ENDPOINTS.ASSESSMENTS}/${id}`, {
+      method: 'DELETE',
+    });
+  },
+
+  getStats: async (clientId: string): Promise<{
+    totalAssessments: number;
+    latestBMI: number;
+    trend: 'improving' | 'stable' | 'declining';
+    lastAssessmentDate: string;
+  }> => {
+    return apiRequest(`${API_CONFIG.ENDPOINTS.ASSESSMENTS}/stats/${clientId}`);
+  },
+};
+
+// Global Search API
+export const searchApi = {
+  globalSearch: async (query: string): Promise<{
+    users: Array<User & { type: 'user' }>;
+    classes: Array<GymClass & { type: 'class' }>;
+    bookings: Array<Booking & { type: 'booking' }>;
+  }> => {
+    // TODO: Replace with actual API call when backend endpoint is ready
+    // const queryParams = new URLSearchParams({ q: query });
+    // return apiRequest(`${API_CONFIG.ENDPOINTS.SEARCH}?${queryParams.toString()}`);
+    
+    // Using mock implementation for demonstration
+    return mockGlobalSearch(query);
   },
 };
