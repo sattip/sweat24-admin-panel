@@ -178,13 +178,12 @@ export function FinancePage() {
       setMonthlyRevenue(prev => ({
         ...prev,
         total: dashboardResponse.monthly_revenue || 0,
-        growth: dashboardResponse.monthly_revenue && dashboardResponse.total_revenue
-          ? ((dashboardResponse.monthly_revenue - dashboardResponse.total_revenue) / dashboardResponse.total_revenue * 100)
-          : 0
+        // TODO: Implement proper growth calculation when API provides previous_month_revenue
+        // For now, set growth to 0 as we cannot calculate it without previous month data
+        growth: 0
       }));
       
     } catch (error) {
-      console.error('Error fetching financial data:', error);
       toast({
         title: "Σφάλμα",
         description: "Αποτυχία φόρτωσης οικονομικών δεδομένων.",
