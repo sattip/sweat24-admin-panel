@@ -1,4 +1,5 @@
 #!/bin/bash
+set -e
 # Laravel Forge Deployment Script for SWEAT24 Backend
 
 cd /home/forge/sweat24backend.obs.com.gr

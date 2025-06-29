@@ -24,6 +24,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { businessExpensesApi } from "@/services/api";
 import type { BusinessExpense } from "@/data/mockData";
 import { format } from "date-fns";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface BusinessExpenseModalProps {
   onUpdate?: () => void;
@@ -31,6 +32,7 @@ interface BusinessExpenseModalProps {
 
 export function BusinessExpenseModal({ onUpdate }: BusinessExpenseModalProps) {
   const { toast } = useToast();
+  const { user } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [expenses, setExpenses] = useState<BusinessExpense[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -154,7 +156,7 @@ export function BusinessExpenseModal({ onUpdate }: BusinessExpenseModalProps) {
       setIsLoading(true);
       await businessExpensesApi.update(expenseId, { 
         approved: true,
-        approvedBy: "admin1" // This would come from auth context
+        approvedBy: user?.id || user?.email || "admin"
       });
 
       toast({

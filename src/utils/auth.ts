@@ -5,11 +5,16 @@
  */
 export function isTokenExpired(token: string): boolean {
   try {
-    const payload = JSON.parse(atob(token.split('.')[1]));
+    // Validate token format
+    const parts = token.split('.');
+    if (parts.length !== 3) {
+      return true;
+    }
+    
+    const payload = JSON.parse(atob(parts[1]));
     const exp = payload.exp * 1000; // Convert to milliseconds
     return Date.now() > exp;
   } catch (error) {
-    console.error('Error checking token expiration:', error);
     return true; // Assume expired if we can't parse
   }
 }
@@ -19,11 +24,16 @@ export function isTokenExpired(token: string): boolean {
  */
 export function getTokenTimeRemaining(token: string): number {
   try {
-    const payload = JSON.parse(atob(token.split('.')[1]));
+    // Validate token format
+    const parts = token.split('.');
+    if (parts.length !== 3) {
+      return 0;
+    }
+    
+    const payload = JSON.parse(atob(parts[1]));
     const exp = payload.exp * 1000; // Convert to milliseconds
     return Math.max(0, exp - Date.now());
   } catch (error) {
-    console.error('Error getting token time remaining:', error);
     return 0;
   }
 }
@@ -33,7 +43,13 @@ export function getTokenTimeRemaining(token: string): number {
  */
 export function getUserFromToken(token: string): any {
   try {
-    const payload = JSON.parse(atob(token.split('.')[1]));
+    // Validate token format
+    const parts = token.split('.');
+    if (parts.length !== 3) {
+      return null;
+    }
+    
+    const payload = JSON.parse(atob(parts[1]));
     return {
       id: payload.sub || payload.user_id,
       email: payload.email,
@@ -42,7 +58,6 @@ export function getUserFromToken(token: string): any {
       // Add any other fields your JWT contains
     };
   } catch (error) {
-    console.error('Error extracting user from token:', error);
     return null;
   }
 }
@@ -110,7 +125,7 @@ export function onAuthStateChange(callback: (token: string | null, user: any | n
         const { token, user } = JSON.parse(e.newValue);
         callback(token, user);
       } catch (error) {
-        console.error('Error syncing auth state:', error);
+        // Error syncing auth state
       }
     } else if (e.key === 'auth-sync' && !e.newValue) {
       callback(null, null);

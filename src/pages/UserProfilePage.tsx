@@ -202,7 +202,7 @@ export function UserProfilePage() {
                 description: "Ο χρήστης διαγράφηκε επιτυχώς.",
             });
             // Redirect to users page
-            window.location.href = '/users';
+            navigate('/users');
         } catch (error) {
             // Failed to delete user - error handled with toast
             toast({

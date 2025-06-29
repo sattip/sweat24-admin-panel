@@ -139,6 +139,8 @@ export function AssessmentPage() {
       setAssessments(assessmentsData);
       
       // Build clients with assessment stats
+      // TODO: Consider implementing a batch endpoint (e.g., /api/v1/assessments/stats/batch)
+      // to fetch all user stats in a single request instead of N+1 queries
       const clientStats: ClientWithStats[] = await Promise.all(
         usersData.map(async (user) => {
           try {

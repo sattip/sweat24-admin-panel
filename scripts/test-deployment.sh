@@ -62,7 +62,13 @@ test_auth() {
     if [ "$status_code" = "200" ] && [[ "$body" == *"token"* ]]; then
         echo -e "${GREEN}✓ PASS${NC}"
         # Extract token for further tests
-        TOKEN=$(echo "$body" | grep -o '"token":"[^"]*' | cut -d'"' -f4)
+        # Check if jq is available
+        if command -v jq &> /dev/null; then
+            TOKEN=$(echo "$body" | jq -r '.token')
+        else
+            # Fallback to grep/sed if jq is not available
+            TOKEN=$(echo "$body" | grep -o '"token":"[^"]*' | cut -d'"' -f4)
+        fi
         export TOKEN
         return 0
     else

@@ -18,6 +18,7 @@ import { GlobalSearchResults } from "./GlobalSearchResults";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/components/ui/use-toast";
 import { useGlobalSearch } from "@/hooks/useGlobalSearch";
+import { useClickOutside } from "@/hooks/useClickOutside";
 
 export function AdminHeader() {
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -25,32 +26,12 @@ export function AdminHeader() {
   const { user, logout } = useAuth();
   const { toast } = useToast();
   const { searchState, handleSearch, clearSearch, navigateToResult } = useGlobalSearch();
-  const searchRef = useRef<HTMLDivElement>(null);
-
-  // Handle click outside to close search results
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (searchRef.current && !searchRef.current.contains(event.target as Node)) {
-        setShowSearchResults(false);
-      }
-    };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
-  // Handle ESC key to close search
-  useEffect(() => {
-    const handleEsc = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        setShowSearchResults(false);
-        clearSearch();
-      }
-    };
-
-    document.addEventListener('keydown', handleEsc);
-    return () => document.removeEventListener('keydown', handleEsc);
-  }, [clearSearch]);
+  
+  // Use custom hook for handling outside clicks and ESC key
+  const searchRef = useClickOutside<HTMLDivElement>(showSearchResults, () => {
+    setShowSearchResults(false);
+    clearSearch();
+  });
 
   const handleLogout = async () => {
     try {
