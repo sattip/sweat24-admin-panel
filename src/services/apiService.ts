@@ -487,11 +487,11 @@ export const searchApi = {
     classes: Array<GymClass & { type: 'class' }>;
     bookings: Array<Booking & { type: 'booking' }>;
   }> => {
-    // TODO: Replace with actual API call when backend endpoint is ready
+    // TODO: Replace mockGlobalSearch with actual API call when backend search endpoint is ready
     // const queryParams = new URLSearchParams({ q: query });
     // return apiRequest(`${API_CONFIG.ENDPOINTS.SEARCH}?${queryParams.toString()}`);
     
-    // Using mock implementation for demonstration
+    // TEMPORARY: Using mock implementation until backend search endpoint is available
     return mockGlobalSearch(query);
   },
 };

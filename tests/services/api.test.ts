@@ -34,7 +34,7 @@ describe('API Configuration', () => {
 
     it('should handle endpoints without leading slash', () => {
       const endpoint = 'users';
-      const expectedUrl = 'http://localhost:8001/api/v1users';
+      const expectedUrl = 'http://localhost:8001/api/v1/users';
       expect(getApiUrl(endpoint)).toBe(expectedUrl);
     });
   });

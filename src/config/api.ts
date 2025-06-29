@@ -41,7 +41,9 @@ export const API_CONFIG = {
 
 // Helper function to build full API URL
 export const getApiUrl = (endpoint: string): string => {
-  return `${API_CONFIG.BASE_URL}${API_CONFIG.API_VERSION}${endpoint}`;
+  // Ensure endpoint starts with a forward slash
+  const normalizedEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+  return `${API_CONFIG.BASE_URL}${API_CONFIG.API_VERSION}${normalizedEndpoint}`;
 };
 
 // Error types
