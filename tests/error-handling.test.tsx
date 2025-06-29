@@ -3,7 +3,7 @@ import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { customRender, mockFetch, createMockErrorResponse } from './utils/test-utils';
 import App from '@/App';
-import UsersPage from '@/pages/UsersPage';
+import { UsersPage } from '@/pages/UsersPage';
 import { ApiError, AuthError } from '@/config/api';
 
 describe('Error Handling Tests', () => {

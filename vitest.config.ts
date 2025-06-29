@@ -8,11 +8,17 @@ export default defineConfig({
     globals: true,
     environment: 'jsdom',
     setupFiles: './tests/setup.ts',
+    exclude: [
+      '**/node_modules/**',
+      '**/Sweat24Mobile/**',
+      '**/dist/**',
+    ],
     coverage: {
       reporter: ['text', 'json', 'html'],
       exclude: [
         'node_modules/',
         'tests/setup.ts',
+        'Sweat24Mobile/**',
       ],
     },
   },

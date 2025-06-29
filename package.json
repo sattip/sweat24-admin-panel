@@ -11,7 +11,10 @@
     "preview": "vite preview",
     "test": "vitest",
     "test:ui": "vitest --ui",
-    "test:coverage": "vitest --coverage"
+    "test:coverage": "vitest --coverage",
+    "clean": "rimraf node_modules package-lock.json",
+    "clean:install": "npm run clean && npm install",
+    "postinstall": "echo 'Dependencies installed successfully!'"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.0",
@@ -69,7 +72,6 @@
     "@tailwindcss/typography": "^0.5.15",
     "@testing-library/jest-dom": "^6.2.0",
     "@testing-library/react": "^14.0.0",
-    "@testing-library/react-hooks": "^8.0.1",
     "@testing-library/user-event": "^14.5.1",
     "@types/node": "^22.15.29",
     "@types/react": "^18.3.3",
@@ -83,7 +85,9 @@
     "globals": "^15.9.0",
     "jsdom": "^23.2.0",
     "lovable-tagger": "^1.1.7",
+    "msw": "^2.10.2",
     "postcss": "^8.4.47",
+    "rimraf": "^5.0.10",
     "tailwindcss": "^3.4.11",
     "typescript": "^5.5.3",
     "typescript-eslint": "^8.0.1",

@@ -3,7 +3,7 @@ import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { customRender, mockFetch, createMockResponse, createMockErrorResponse } from '../utils/test-utils';
 import { mockUsers, createPaginatedResponse } from '../utils/mock-data';
-import UsersPage from '@/pages/UsersPage';
+import { UsersPage } from '@/pages/UsersPage';
 
 describe('User Management Integration Tests', () => {
   beforeEach(() => {

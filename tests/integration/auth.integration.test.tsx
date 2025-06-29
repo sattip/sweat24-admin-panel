@@ -3,7 +3,7 @@ import { screen, waitFor, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { customRender, mockFetch, createMockResponse, createMockErrorResponse } from '../utils/test-utils';
 import { mockUser } from '../utils/test-utils';
-import LoginPage from '@/pages/LoginPage';
+import { LoginPage } from '@/pages/LoginPage';
 import App from '@/App';
 
 describe('Authentication Integration Tests', () => {

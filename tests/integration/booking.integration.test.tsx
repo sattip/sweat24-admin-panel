@@ -3,7 +3,7 @@ import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { customRender, mockFetch, createMockResponse, createMockErrorResponse } from '../utils/test-utils';
 import { mockBookings, mockClasses, mockUsers, mockInstructors } from '../utils/mock-data';
-import BookingsPage from '@/pages/BookingsPage';
+import { BookingsPage } from '@/pages/BookingsPage';
 
 describe('Booking Management Integration Tests', () => {
   beforeEach(() => {
