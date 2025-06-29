@@ -8,52 +8,63 @@ import { NotificationSendModal } from "./NotificationSendModal";
 import { NewUserModal } from "./NewUserModal";
 import { NewClassModal } from "./NewClassModal";
 
-const quickActions = [
-  {
-    title: "Διαχείριση Δόσεων",
-    description: "Καταγραφή και παρακολούθηση δόσεων πελατών",
-    icon: CreditCard,
-    action: "Διαχείριση Δόσεων",
-    component: "installments"
-  },
-  {
-    title: "Live Ταμείο",
-    description: "Καταγραφή εσόδων και αναλήψεων",
-    icon: Wallet,
-    action: "Άνοιγμα Ταμείου",
-    component: "cashregister"
-  },
-  {
-    title: "Προσθήκη Νέου Μέλους",
-    description: "Εγγραφή νέου μέλους στο γυμναστήριο",
-    icon: UserPlus,
-    action: "Προσθήκη Μέλους",
-    component: "newuser"
-  },
-  {
-    title: "Καταγραφή Εξόδων",
-    description: "Καταχώρηση λειτουργικών εξόδων",
-    icon: Receipt,
-    action: "Νέο Έξοδο",
-    component: "expenses"
-  },
-  {
-    title: "Προγραμματισμός Μαθήματος",
-    description: "Δημιουργία νέου μαθήματος γυμναστικής",
-    icon: Calendar,
-    action: "Προγραμματισμός",
-    component: "newclass"
-  },
-  {
-    title: "Αποστολή Ειδοποίησης",
-    description: "Ενημέρωση όλων των μελών",
-    icon: Bell,
-    action: "Αποστολή",
-    component: "notification"
-  },
-];
+const getQuickActions = () => {
+  // This could be dynamic based on user permissions or config
+  return [
+    {
+      title: "Διαχείριση Δόσεων",
+      description: "Καταγραφή και παρακολούθηση δόσεων πελατών",
+      icon: CreditCard,
+      action: "Διαχείριση Δόσεων",
+      component: "installments",
+      enabled: true
+    },
+    {
+      title: "Live Ταμείο",
+      description: "Καταγραφή εσόδων και αναλήψεων",
+      icon: Wallet,
+      action: "Άνοιγμα Ταμείου",
+      component: "cashregister",
+      enabled: true
+    },
+    {
+      title: "Προσθήκη Νέου Μέλους",
+      description: "Εγγραφή νέου μέλους στο γυμναστήριο",
+      icon: UserPlus,
+      action: "Προσθήκη Μέλους",
+      component: "newuser",
+      enabled: true
+    },
+    {
+      title: "Καταγραφή Εξόδων",
+      description: "Καταχώρηση λειτουργικών εξόδων",
+      icon: Receipt,
+      action: "Νέο Έξοδο",
+      component: "expenses",
+      enabled: true
+    },
+    {
+      title: "Προγραμματισμός Μαθήματος",
+      description: "Δημιουργία νέου μαθήματος γυμναστικής",
+      icon: Calendar,
+      action: "Προγραμματισμός",
+      component: "newclass",
+      enabled: true
+    },
+    {
+      title: "Αποστολή Ειδοποίησης",
+      description: "Ενημέρωση όλων των μελών",
+      icon: Bell,
+      action: "Αποστολή",
+      component: "notification",
+      enabled: true
+    },
+  ].filter(action => action.enabled);
+};
 
 export function QuickActions() {
+  const quickActions = getQuickActions();
+  
   return (
     <Card
       className="bg-card border border-border rounded-lg shadow-sm"

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
@@ -15,7 +15,8 @@ import {
 } from "./ui/dialog";
 import { UserPlus, Mail } from "lucide-react";
 import { useToast } from "../hooks/use-toast";
-import { mockPackagesData } from "../data/mockData";
+import { usersApi, packagesApi, userPackagesApi } from "../services/apiService";
+import type { Package } from "../data/mockData";
 
 interface NewUserModalProps {
   isOpen?: boolean;
@@ -31,6 +32,8 @@ export function NewUserModal({
   onUserCreated 
 }: NewUserModalProps) {
   const { toast } = useToast();
+  const [packages, setPackages] = useState<Package[]>([]);
+  const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -41,7 +44,26 @@ export function NewUserModal({
     sendLoginDetails: true,
   });
 
-  const handleCreateUser = () => {
+  // Load packages on mount
+  useEffect(() => {
+    loadPackages();
+  }, []);
+
+  const loadPackages = async () => {
+    try {
+      const packagesData = await packagesApi.getAll();
+      setPackages(packagesData);
+    } catch (error) {
+      console.error('Failed to load packages:', error);
+      toast({
+        title: "Σφάλμα",
+        description: "Αποτυχία φόρτωσης πακέτων.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleCreateUser = async () => {
     if (!formData.name || !formData.email) {
       toast({ 
         title: "Σφάλμα", 
@@ -59,55 +81,68 @@ export function NewUserModal({
       return;
     }
 
-    const selectedPackage = mockPackagesData.find(p => p.id === formData.packageType);
-    const newUser = {
-      id: Date.now().toString(),
-      name: formData.name,
-      email: formData.email,
-      phone: formData.phone,
-      membershipType: selectedPackage?.name.split(" - ")[0] || "Χωρίς Πακέτο",
-      joinDate: new Date().toISOString().split("T")[0],
-      status: "active",
-      lastVisit: "-",
-      medicalHistory: formData.medicalHistory,
-      avatar: null,
-      packages: selectedPackage ? [{
-        id: `userPkg_${Date.now()}`,
-        packageId: selectedPackage.id,
-        name: selectedPackage.name,
-        assignedDate: new Date().toISOString().split("T")[0],
-        expiryDate: new Date(new Date().setDate(new Date().getDate() + selectedPackage.duration)).toISOString().split("T")[0],
-        remainingSessions: selectedPackage.sessions,
-        totalSessions: selectedPackage.sessions,
-        status: 'active'
-      }] : [],
-      activityLog: selectedPackage ? [{ 
-        date: new Date().toISOString().split("T")[0], 
-        action: `Αγορά πακέτου '${selectedPackage.name}'` 
-      }] : [],
-    };
+    setLoading(true);
+    try {
+      // Create user
+      const selectedPackage = packages.find(p => p.id === formData.packageType);
+      const newUserData = {
+        name: formData.name,
+        email: formData.email,
+        phone: formData.phone,
+        password: generateRandomPassword(), // Generate a secure random password
+        membership_type: selectedPackage?.name.split(" - ")[0] || "Χωρίς Πακέτο",
+        medical_history: formData.medicalHistory,
+        status: 'active' as const,
+      };
 
-    toast({ 
-      title: "Επιτυχία!", 
-      description: `Ο πελάτης ${formData.name} δημιουργήθηκε επιτυχώς!` 
-    });
+      const createdUser = await usersApi.create(newUserData);
+      
+      // If package selected, assign it to the user
+      if (formData.packageType && selectedPackage) {
+        try {
+          await userPackagesApi.assignPackage(createdUser.id, selectedPackage.id);
+        } catch (error) {
+          console.error('Failed to assign package:', error);
+          toast({
+            title: "Προειδοποίηση",
+            description: "Ο χρήστης δημιουργήθηκε αλλά απέτυχε η ανάθεση πακέτου.",
+            variant: "default"
+          });
+        }
+      }
 
-    if (formData.sendLoginDetails) {
-      setTimeout(() => {
-        toast({ 
-          title: "Αποστολή Email", 
-          description: `Τα στοιχεία σύνδεσης στάλθηκαν στο ${formData.email}.` 
-        });
-      }, 1000);
-    }
-    
-    if (onUserCreated) {
-      onUserCreated(newUser);
-    }
+      toast({ 
+        title: "Επιτυχία!", 
+        description: `Ο πελάτης ${formData.name} δημιουργήθηκε επιτυχώς!` 
+      });
 
-    resetForm();
-    if (onOpenChange) {
-      onOpenChange(false);
+      if (formData.sendLoginDetails) {
+        // In a real app, this would trigger an email send via the backend
+        setTimeout(() => {
+          toast({ 
+            title: "Αποστολή Email", 
+            description: `Τα στοιχεία σύνδεσης στάλθηκαν στο ${formData.email}.` 
+          });
+        }, 1000);
+      }
+      
+      if (onUserCreated) {
+        onUserCreated(createdUser);
+      }
+
+      resetForm();
+      if (onOpenChange) {
+        onOpenChange(false);
+      }
+    } catch (error) {
+      console.error('Failed to create user:', error);
+      toast({ 
+        title: "Σφάλμα", 
+        description: "Αποτυχία δημιουργίας πελάτη. Παρακαλώ δοκιμάστε ξανά.", 
+        variant: "destructive" 
+      });
+    } finally {
+      setLoading(false);
     }
   };
   
@@ -121,6 +156,16 @@ export function NewUserModal({
       termsAccepted: false, 
       sendLoginDetails: true 
     });
+  };
+
+  const generateRandomPassword = () => {
+    const length = 12;
+    const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*";
+    let password = "";
+    for (let i = 0; i < length; i++) {
+      password += charset.charAt(Math.floor(Math.random() * charset.length));
+    }
+    return password;
   };
 
   const content = (
@@ -145,6 +190,7 @@ export function NewUserModal({
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               placeholder="π.χ. Γιάννης Παπαδόπουλος"
+              disabled={loading}
             />
           </div>
           <div>
@@ -154,6 +200,7 @@ export function NewUserModal({
               value={formData.phone}
               onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
               placeholder="π.χ. 6912345678"
+              disabled={loading}
             />
           </div>
         </div>
@@ -166,20 +213,25 @@ export function NewUserModal({
             value={formData.email}
             onChange={(e) => setFormData({ ...formData, email: e.target.value })}
             placeholder="π.χ. giannis@email.com"
+            disabled={loading}
           />
         </div>
 
         {/* Package Selection */}
         <div>
           <Label htmlFor="packageType">Πακέτο (προαιρετικό)</Label>
-          <Select value={formData.packageType} onValueChange={(value) => setFormData({ ...formData, packageType: value })}>
+          <Select 
+            value={formData.packageType} 
+            onValueChange={(value) => setFormData({ ...formData, packageType: value })}
+            disabled={loading}
+          >
             <SelectTrigger>
               <SelectValue placeholder="Επιλέξτε πακέτο" />
             </SelectTrigger>
             <SelectContent>
-              {mockPackagesData.map((pkg) => (
+              {packages.map((pkg) => (
                 <SelectItem key={pkg.id} value={pkg.id}>
-                  {pkg.name}
+                  {pkg.name} - €{pkg.price}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -195,6 +247,7 @@ export function NewUserModal({
             onChange={(e) => setFormData({ ...formData, medicalHistory: e.target.value })} 
             placeholder="Αναφέρετε τυχόν τραυματισμούς, αλλεργίες ή παθήσεις." 
             rows={3}
+            disabled={loading}
           />
         </div>
 
@@ -205,6 +258,7 @@ export function NewUserModal({
               id="terms" 
               checked={formData.termsAccepted} 
               onCheckedChange={(checked) => setFormData({ ...formData, termsAccepted: !!checked })}
+              disabled={loading}
             />
             <label htmlFor="terms" className="text-sm font-medium">
               Ο πελάτης αποδέχεται τους όρους χρήσης. *
@@ -215,6 +269,7 @@ export function NewUserModal({
               id="sendLogin" 
               checked={formData.sendLoginDetails} 
               onCheckedChange={(checked) => setFormData({ ...formData, sendLoginDetails: !!checked })}
+              disabled={loading}
             />
             <label htmlFor="sendLogin" className="text-sm font-medium">
               <Mail className="inline h-4 w-4 mr-1" />
@@ -223,9 +278,19 @@ export function NewUserModal({
           </div>
         </div>
 
-        <Button onClick={handleCreateUser} className="w-full bg-primary hover:bg-primary/90 text-white text-lg py-6">
-          <UserPlus className="h-5 w-5 mr-2" />
-          Ολοκλήρωση Εγγραφής
+        <Button 
+          onClick={handleCreateUser} 
+          className="w-full bg-primary hover:bg-primary/90 text-white text-lg py-6"
+          disabled={loading}
+        >
+          {loading ? (
+            <>Δημιουργία...</>
+          ) : (
+            <>
+              <UserPlus className="h-5 w-5 mr-2" />
+              Ολοκλήρωση Εγγραφής
+            </>
+          )}
         </Button>
       </div>
     </DialogContent>
@@ -250,4 +315,4 @@ export function NewUserModal({
       {content}
     </Dialog>
   );
-} 
+}

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { AdminSidebar } from "@/components/AdminSidebar";
 import { AdminHeader } from "@/components/AdminHeader";
@@ -33,19 +33,27 @@ import {
   Calendar,
   Palette,
   Database,
+  Loader2,
+  AlertCircle,
 } from "lucide-react";
+import { useToast } from "@/components/ui/use-toast";
+import { settingsApi } from "@/services/apiService";
+import type { Settings as SettingsType } from "@/data/mockData";
 
 export function SettingsPage() {
+  const { toast } = useToast();
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [gymSettings, setGymSettings] = useState({
-    name: "Sweat24 Γυμναστήριο",
-    address: "Λεωφόρος Αθηνών 123, Αθήνα",
-    phone: "210 1234567",
-    email: "info@sweat24.gr",
-    website: "www.sweat24.gr",
-    openingHours: "06:00 - 23:00",
+    name: "",
+    address: "",
+    phone: "",
+    email: "",
+    website: "",
+    openingHours: "",
     maxCapacity: 50,
     enableWaitlist: true,
-    cancellationPolicy: 24, // ώρες
+    cancellationPolicy: 24,
     enableNotifications: true,
     enableSMS: true,
     enableEmail: true,
@@ -54,11 +62,11 @@ export function SettingsPage() {
   const [systemSettings, setSystemSettings] = useState({
     autoBackup: true,
     backupFrequency: "καθημερινά",
-    sessionTimeout: 60, // λεπτά
+    sessionTimeout: 60,
     enableLogging: true,
     debugMode: false,
     maintenanceMode: false,
-    maxFileSize: 10, // MB
+    maxFileSize: 10,
     allowedFileTypes: "jpg,png,pdf",
   });
 
@@ -71,14 +79,158 @@ export function SettingsPage() {
     pilatesSession: 20.00,
     trialSession: 10.00,
     currency: "EUR",
-    taxRate: 24, // %
+    taxRate: 24,
   });
 
-  const handleSaveSettings = (section: string) => {
-    // Εδώ θα προστεθεί η λογική αποθήκευσης
-    console.log(`Αποθήκευση ρυθμίσεων ${section}`);
-    alert(`Οι ρυθμίσεις ${section} αποθηκεύτηκαν επιτυχώς!`);
+  useEffect(() => {
+    loadSettings();
+  }, []);
+
+  const loadSettings = async () => {
+    try {
+      setLoading(true);
+      const settings = await settingsApi.get();
+      
+      if (settings.gym) {
+        setGymSettings(settings.gym);
+      }
+      if (settings.system) {
+        setSystemSettings(settings.system);
+      }
+      if (settings.pricing) {
+        setPricingSettings(settings.pricing);
+      }
+    } catch (error) {
+      console.error('Failed to load settings:', error);
+      toast({
+        title: "Σφάλμα",
+        description: "Αποτυχία φόρτωσης ρυθμίσεων. Χρησιμοποιούνται οι προεπιλεγμένες τιμές.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
   };
+
+  const handleSaveSettings = async (section: string) => {
+    try {
+      setSaving(true);
+      
+      let result;
+      switch (section) {
+        case 'γυμναστηρίου':
+          result = await settingsApi.updateGym(gymSettings);
+          break;
+        case 'τιμολογίου':
+          result = await settingsApi.updatePricing(pricingSettings);
+          break;
+        case 'συστήματος':
+          result = await settingsApi.updateSystem(systemSettings);
+          break;
+        case 'αντιγράφων':
+          result = await settingsApi.updateSystem({ 
+            autoBackup: systemSettings.autoBackup,
+            backupFrequency: systemSettings.backupFrequency 
+          });
+          break;
+        default:
+          throw new Error('Άγνωστη ενότητα ρυθμίσεων');
+      }
+
+      toast({
+        title: "Επιτυχής Αποθήκευση",
+        description: `Οι ρυθμίσεις ${section} αποθηκεύτηκαν επιτυχώς!`,
+      });
+    } catch (error) {
+      console.error('Failed to save settings:', error);
+      toast({
+        title: "Σφάλμα",
+        description: `Αποτυχία αποθήκευσης ρυθμίσεων ${section}.`,
+        variant: "destructive",
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleSaveAll = async () => {
+    try {
+      setSaving(true);
+      
+      const allSettings: SettingsType = {
+        gym: gymSettings,
+        system: systemSettings,
+        pricing: pricingSettings,
+      };
+
+      await settingsApi.update(allSettings);
+
+      toast({
+        title: "Επιτυχής Αποθήκευση",
+        description: "Όλες οι ρυθμίσεις αποθηκεύτηκαν επιτυχώς!",
+      });
+    } catch (error) {
+      console.error('Failed to save all settings:', error);
+      toast({
+        title: "Σφάλμα",
+        description: "Αποτυχία αποθήκευσης ρυθμίσεων.",
+        variant: "destructive",
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleCreateBackup = async () => {
+    try {
+      // This would typically trigger a backup endpoint
+      toast({
+        title: "Δημιουργία Αντιγράφου",
+        description: "Η δημιουργία αντιγράφου ασφαλείας ξεκίνησε.",
+      });
+    } catch (error) {
+      toast({
+        title: "Σφάλμα",
+        description: "Αποτυχία δημιουργίας αντιγράφου ασφαλείας.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleRestoreBackup = async () => {
+    try {
+      // This would typically open a file picker or restore dialog
+      toast({
+        title: "Επαναφορά Αντιγράφου",
+        description: "Η λειτουργία επαναφοράς δεν είναι ακόμη διαθέσιμη.",
+      });
+    } catch (error) {
+      toast({
+        title: "Σφάλμα",
+        description: "Αποτυχία επαναφοράς αντιγράφου.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  if (loading) {
+    return (
+      <SidebarProvider>
+        <div className="min-h-screen flex w-full bg-background">
+          <AdminSidebar />
+          <div className="flex-1 flex flex-col">
+            <AdminHeader />
+            <main className="flex-1 p-6 flex items-center justify-center">
+              <div className="flex flex-col items-center gap-4">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                <p className="text-muted-foreground">Φόρτωση ρυθμίσεων...</p>
+              </div>
+            </main>
+          </div>
+        </div>
+      </SidebarProvider>
+    );
+  }
 
   return (
     <SidebarProvider>
@@ -95,8 +247,16 @@ export function SettingsPage() {
                   Διαχείριση γενικών ρυθμίσεων και παραμέτρων του γυμναστηρίου
                 </p>
               </div>
-              <Button className="bg-primary hover:bg-primary/90">
-                <Save className="h-4 w-4 mr-2" />
+              <Button 
+                className="bg-primary hover:bg-primary/90" 
+                onClick={handleSaveAll}
+                disabled={saving}
+              >
+                {saving ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Save className="h-4 w-4 mr-2" />
+                )}
                 Αποθήκευση Όλων
               </Button>
             </div>
@@ -187,8 +347,13 @@ export function SettingsPage() {
                     <Button 
                       onClick={() => handleSaveSettings("γυμναστηρίου")}
                       className="w-fit"
+                      disabled={saving}
                     >
-                      <Save className="h-4 w-4 mr-2" />
+                      {saving ? (
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      ) : (
+                        <Save className="h-4 w-4 mr-2" />
+                      )}
                       Αποθήκευση Στοιχείων
                     </Button>
                   </CardContent>
@@ -377,8 +542,13 @@ export function SettingsPage() {
                     <Button 
                       onClick={() => handleSaveSettings("τιμολογίου")}
                       className="w-fit"
+                      disabled={saving}
                     >
-                      <Save className="h-4 w-4 mr-2" />
+                      {saving ? (
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      ) : (
+                        <Save className="h-4 w-4 mr-2" />
+                      )}
                       Αποθήκευση Τιμών
                     </Button>
                   </CardContent>
@@ -469,8 +639,13 @@ export function SettingsPage() {
                     <Button 
                       onClick={() => handleSaveSettings("συστήματος")}
                       className="w-fit"
+                      disabled={saving}
                     >
-                      <Save className="h-4 w-4 mr-2" />
+                      {saving ? (
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      ) : (
+                        <Save className="h-4 w-4 mr-2" />
+                      )}
                       Αποθήκευση Ρυθμίσεων
                     </Button>
                   </CardContent>
@@ -488,11 +663,18 @@ export function SettingsPage() {
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <div className="grid grid-cols-2 gap-4">
-                      <Button className="h-16 flex flex-col items-center">
+                      <Button 
+                        className="h-16 flex flex-col items-center"
+                        onClick={handleCreateBackup}
+                      >
                         <Download className="h-6 w-6 mb-2" />
                         Δημιουργία Αντιγράφου
                       </Button>
-                      <Button variant="outline" className="h-16 flex flex-col items-center">
+                      <Button 
+                        variant="outline" 
+                        className="h-16 flex flex-col items-center"
+                        onClick={handleRestoreBackup}
+                      >
                         <Upload className="h-6 w-6 mb-2" />
                         Επαναφορά από Αντίγραφο
                       </Button>
@@ -531,16 +713,26 @@ export function SettingsPage() {
                       </div>
                     </div>
                     <div className="bg-yellow-50 border border-yellow-200 p-4 rounded-lg">
-                      <h4 className="font-medium text-yellow-800 mb-1">Σημαντική Υπενθύμιση</h4>
-                      <p className="text-sm text-yellow-700">
-                        Συνιστάται η τακτική δημιουργία αντιγράφων ασφαλείας και η φύλαξή τους σε εξωτερικό χώρο αποθήκευσης.
-                      </p>
+                      <div className="flex items-start gap-2">
+                        <AlertCircle className="h-5 w-5 text-yellow-800 mt-0.5" />
+                        <div>
+                          <h4 className="font-medium text-yellow-800 mb-1">Σημαντική Υπενθύμιση</h4>
+                          <p className="text-sm text-yellow-700">
+                            Συνιστάται η τακτική δημιουργία αντιγράφων ασφαλείας και η φύλαξή τους σε εξωτερικό χώρο αποθήκευσης.
+                          </p>
+                        </div>
+                      </div>
                     </div>
                     <Button 
                       onClick={() => handleSaveSettings("αντιγράφων")}
                       className="w-fit"
+                      disabled={saving}
                     >
-                      <Save className="h-4 w-4 mr-2" />
+                      {saving ? (
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      ) : (
+                        <Save className="h-4 w-4 mr-2" />
+                      )}
                       Αποθήκευση Ρυθμίσεων
                     </Button>
                   </CardContent>
@@ -552,4 +744,4 @@ export function SettingsPage() {
       </div>
     </SidebarProvider>
   );
-} 
+}

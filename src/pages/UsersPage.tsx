@@ -6,11 +6,12 @@ import {
   Edit,
   Trash2,
   Mail,
+  Loader2,
 } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { Link } from "react-router-dom";
 import { buttonVariants } from "@/components/ui/button";
-import { usersApi, packagesApi } from "@/services/apiService";
+import { usersApi, packagesApi, userPackagesApi } from "@/services/apiService";
 import type { User, Package } from "@/data/mockData";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { AdminSidebar } from "@/components/AdminSidebar";
@@ -48,7 +49,7 @@ import {
 } from "@/components/ui/select";
 
 
-const NewUserDialogContent = ({ formData, setFormData, handleCreateUser, packages }) => (
+const NewUserDialogContent = ({ formData, setFormData, handleCreateUser, packages, loading }) => (
   <DialogContent className="max-w-lg">
     <DialogHeader>
       <DialogTitle>Δημιουργία Νέου Πελάτη</DialogTitle>
@@ -61,29 +62,54 @@ const NewUserDialogContent = ({ formData, setFormData, handleCreateUser, package
       <div className="grid grid-cols-2 gap-4">
         <div>
           <Label htmlFor="name">Ονοματεπώνυμο *</Label>
-          <Input id="name" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} placeholder="Π.χ. Γιάννης Παπαδόπουλος" className="mt-1"/>
+          <Input 
+            id="name" 
+            value={formData.name} 
+            onChange={(e) => setFormData({ ...formData, name: e.target.value })} 
+            placeholder="Π.χ. Γιάννης Παπαδόπουλος" 
+            className="mt-1"
+            disabled={loading}
+          />
         </div>
         <div>
           <Label htmlFor="phone">Τηλέφωνο</Label>
-          <Input id="phone" value={formData.phone} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} placeholder="Π.χ. 6901234567" className="mt-1"/>
+          <Input 
+            id="phone" 
+            value={formData.phone} 
+            onChange={(e) => setFormData({ ...formData, phone: e.target.value })} 
+            placeholder="Π.χ. 6901234567" 
+            className="mt-1"
+            disabled={loading}
+          />
         </div>
       </div>
       <div>
         <Label htmlFor="email">Email *</Label>
-        <Input id="email" type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} placeholder="Π.χ. user@email.com" className="mt-1"/>
+        <Input 
+          id="email" 
+          type="email" 
+          value={formData.email} 
+          onChange={(e) => setFormData({ ...formData, email: e.target.value })} 
+          placeholder="Π.χ. user@email.com" 
+          className="mt-1"
+          disabled={loading}
+        />
       </div>
 
       {/* Package Selection */}
       <div>
         <Label htmlFor="packageType">Αρχικό Πακέτο</Label>
-        <Select onValueChange={(value) => setFormData({ ...formData, packageType: value })}>
+        <Select 
+          onValueChange={(value) => setFormData({ ...formData, packageType: value })}
+          disabled={loading}
+        >
           <SelectTrigger id="packageType" className="w-full mt-1">
             <SelectValue placeholder="Επιλέξτε πακέτο (προαιρετικό)" />
           </SelectTrigger>
           <SelectContent>
             {packages.map((pkg) => (
               <SelectItem key={pkg.id} value={pkg.id.toString()}>
-                {pkg.name}
+                {pkg.name} - €{pkg.price}
               </SelectItem>
             ))}
           </SelectContent>
@@ -93,19 +119,36 @@ const NewUserDialogContent = ({ formData, setFormData, handleCreateUser, package
       {/* Medical History */}
        <div>
         <Label htmlFor="medicalHistory">Σύντομο Ιατρικό Ιστορικό</Label>
-        <Textarea id="medicalHistory" value={formData.medicalHistory} onChange={(e) => setFormData({ ...formData, medicalHistory: e.target.value })} placeholder="Αναφέρετε τυχόν τραυματισμούς, αλλεργίες ή παθήσεις." className="mt-1"/>
+        <Textarea 
+          id="medicalHistory" 
+          value={formData.medicalHistory} 
+          onChange={(e) => setFormData({ ...formData, medicalHistory: e.target.value })} 
+          placeholder="Αναφέρετε τυχόν τραυματισμούς, αλλεργίες ή παθήσεις." 
+          className="mt-1"
+          disabled={loading}
+        />
       </div>
 
       {/* Terms & Email */}
       <div className="space-y-4 pt-4">
         <div className="flex items-center space-x-2">
-          <Checkbox id="terms" checked={formData.termsAccepted} onCheckedChange={(checked) => setFormData({ ...formData, termsAccepted: !!checked })}/>
+          <Checkbox 
+            id="terms" 
+            checked={formData.termsAccepted} 
+            onCheckedChange={(checked) => setFormData({ ...formData, termsAccepted: !!checked })}
+            disabled={loading}
+          />
           <label htmlFor="terms" className="text-sm font-medium">
             Ο πελάτης αποδέχεται τους όρους χρήσης.
           </label>
         </div>
         <div className="flex items-center space-x-2">
-           <Checkbox id="sendLogin" checked={formData.sendLoginDetails} onCheckedChange={(checked) => setFormData({ ...formData, sendLoginDetails: !!checked })}/>
+           <Checkbox 
+             id="sendLogin" 
+             checked={formData.sendLoginDetails} 
+             onCheckedChange={(checked) => setFormData({ ...formData, sendLoginDetails: !!checked })}
+             disabled={loading}
+           />
           <label htmlFor="sendLogin" className="text-sm font-medium">
             <Mail className="inline h-4 w-4 mr-1" />
             Αποστολή στοιχείων σύνδεσης στο email.
@@ -113,9 +156,103 @@ const NewUserDialogContent = ({ formData, setFormData, handleCreateUser, package
         </div>
       </div>
     </div>
-     <Button onClick={handleCreateUser} className="w-full bg-primary hover:bg-primary/90 text-white text-lg py-6">
-        <UserPlus className="h-5 w-5 mr-2" />
-        Ολοκλήρωση Εγγραφής
+     <Button 
+       onClick={handleCreateUser} 
+       className="w-full bg-primary hover:bg-primary/90 text-white text-lg py-6"
+       disabled={loading}
+     >
+        {loading ? (
+          <>Δημιουργία...</>
+        ) : (
+          <>
+            <UserPlus className="h-5 w-5 mr-2" />
+            Ολοκλήρωση Εγγραφής
+          </>
+        )}
+    </Button>
+  </DialogContent>
+);
+
+const EditUserDialogContent = ({ user, formData, setFormData, handleUpdateUser, loading }) => (
+  <DialogContent className="max-w-lg">
+    <DialogHeader>
+      <DialogTitle>Επεξεργασία Πελάτη</DialogTitle>
+      <DialogDescription>
+        Ενημερώστε τα στοιχεία του πελάτη.
+      </DialogDescription>
+    </DialogHeader>
+    <div className="grid gap-6 py-4">
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <Label htmlFor="edit-name">Ονοματεπώνυμο *</Label>
+          <Input 
+            id="edit-name" 
+            value={formData.name} 
+            onChange={(e) => setFormData({ ...formData, name: e.target.value })} 
+            placeholder="Π.χ. Γιάννης Παπαδόπουλος" 
+            className="mt-1"
+            disabled={loading}
+          />
+        </div>
+        <div>
+          <Label htmlFor="edit-phone">Τηλέφωνο</Label>
+          <Input 
+            id="edit-phone" 
+            value={formData.phone} 
+            onChange={(e) => setFormData({ ...formData, phone: e.target.value })} 
+            placeholder="Π.χ. 6901234567" 
+            className="mt-1"
+            disabled={loading}
+          />
+        </div>
+      </div>
+      <div>
+        <Label htmlFor="edit-email">Email *</Label>
+        <Input 
+          id="edit-email" 
+          type="email" 
+          value={formData.email} 
+          onChange={(e) => setFormData({ ...formData, email: e.target.value })} 
+          placeholder="Π.χ. user@email.com" 
+          className="mt-1"
+          disabled={loading}
+        />
+      </div>
+      <div>
+        <Label htmlFor="edit-medicalHistory">Ιατρικό Ιστορικό</Label>
+        <Textarea 
+          id="edit-medicalHistory" 
+          value={formData.medicalHistory} 
+          onChange={(e) => setFormData({ ...formData, medicalHistory: e.target.value })} 
+          placeholder="Αναφέρετε τυχόν τραυματισμούς, αλλεργίες ή παθήσεις." 
+          className="mt-1"
+          disabled={loading}
+        />
+      </div>
+      <div>
+        <Label htmlFor="edit-status">Κατάσταση</Label>
+        <Select 
+          value={formData.status}
+          onValueChange={(value) => setFormData({ ...formData, status: value })}
+          disabled={loading}
+        >
+          <SelectTrigger id="edit-status" className="w-full mt-1">
+            <SelectValue placeholder="Επιλέξτε κατάσταση" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="active">Ενεργός</SelectItem>
+            <SelectItem value="inactive">Ανενεργός</SelectItem>
+            <SelectItem value="expired">Έληξε</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+    </div>
+    <Button 
+      onClick={handleUpdateUser} 
+      className="w-full bg-primary hover:bg-primary/90 text-white"
+      disabled={loading}
+    >
+      {loading ? "Ενημέρωση..." : "Ενημέρωση Στοιχείων"}
     </Button>
   </DialogContent>
 );
@@ -125,9 +262,11 @@ export function UsersPage() {
   const [users, setUsers] = useState<User[]>([]);
   const [packages, setPackages] = useState<Package[]>([]);
   const [loading, setLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [selectedUser, setSelectedUser] = useState(null); 
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<User | null>(null); 
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -136,6 +275,14 @@ export function UsersPage() {
     medicalHistory: "",
     termsAccepted: false,
     sendLoginDetails: true,
+    status: "active",
+  });
+  const [editFormData, setEditFormData] = useState({
+    name: "",
+    email: "",
+    phone: "",
+    medicalHistory: "",
+    status: "active",
   });
 
   // Load data from API
@@ -154,7 +301,7 @@ export function UsersPage() {
       setUsers(usersResponse.data || usersResponse);
       setPackages(packagesResponse);
     } catch (error) {
-      console.error('Failed to load data:', error);
+      // Failed to load data - error handled with toast
       toast({
         title: "Σφάλμα",
         description: "Αποτυχία φόρτωσης δεδομένων. Παρακαλώ δοκιμάστε ξανά.",
@@ -170,6 +317,16 @@ export function UsersPage() {
     user.email.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  const generateRandomPassword = () => {
+    const length = 12;
+    const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*";
+    let password = "";
+    for (let i = 0; i < length; i++) {
+      password += charset.charAt(Math.floor(Math.random() * charset.length));
+    }
+    return password;
+  };
+
   const handleCreateUser = async () => {
     if (!formData.name || !formData.email) {
       toast({ title: "Σφάλμα", description: "Το Ονοματεπώνυμο και το Email είναι υποχρεωτικά.", variant: "destructive" });
@@ -181,17 +338,33 @@ export function UsersPage() {
     }
 
     try {
+      setActionLoading(true);
       const selectedPackage = packages.find(p => p.id.toString() === formData.packageType);
       const newUserData = {
         name: formData.name,
         email: formData.email,
         phone: formData.phone,
-        password: 'defaultpassword123', // You may want to generate a random password
+        password: generateRandomPassword(),
         membership_type: selectedPackage?.name.split(" - ")[0] || "Χωρίς Πακέτο",
         medical_history: formData.medicalHistory,
+        status: 'active' as const,
       };
 
       const createdUser = await usersApi.create(newUserData);
+      
+      // If package selected, assign it to the user
+      if (formData.packageType && selectedPackage) {
+        try {
+          await userPackagesApi.assignPackage(createdUser.id, selectedPackage.id);
+        } catch (error) {
+          // Failed to assign package - error handled with toast
+          toast({
+            title: "Προειδοποίηση",
+            description: "Ο χρήστης δημιουργήθηκε αλλά απέτυχε η ανάθεση πακέτου.",
+            variant: "default"
+          });
+        }
+      }
       
       // Refresh the users list
       await loadData();
@@ -207,20 +380,89 @@ export function UsersPage() {
       
       resetForm();
     } catch (error) {
-      console.error('Failed to create user:', error);
+      // Failed to create user - error handled with toast
       toast({ 
         title: "Σφάλμα", 
         description: "Αποτυχία δημιουργίας πελάτη. Παρακαλώ δοκιμάστε ξανά.", 
+        variant: "destructive" 
+      });
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleEditUser = (user: User) => {
+    setSelectedUser(user);
+    setEditFormData({
+      name: user.name,
+      email: user.email,
+      phone: user.phone,
+      medicalHistory: user.medicalHistory || "",
+      status: user.status,
+    });
+    setIsEditDialogOpen(true);
+  };
+
+  const handleUpdateUser = async () => {
+    if (!selectedUser) return;
+    if (!editFormData.name || !editFormData.email) {
+      toast({ title: "Σφάλμα", description: "Το Ονοματεπώνυμο και το Email είναι υποχρεωτικά.", variant: "destructive" });
+      return;
+    }
+
+    try {
+      setActionLoading(true);
+      const updateData = {
+        name: editFormData.name,
+        email: editFormData.email,
+        phone: editFormData.phone,
+        medical_history: editFormData.medicalHistory,
+        status: editFormData.status,
+      };
+
+      await usersApi.update(selectedUser.id, updateData);
+      
+      // Refresh the users list
+      await loadData();
+      
+      setIsEditDialogOpen(false);
+      toast({ title: "Επιτυχία!", description: `Τα στοιχεία του πελάτη ${editFormData.name} ενημερώθηκαν.` });
+    } catch (error) {
+      // Failed to update user - error handled with toast
+      toast({ 
+        title: "Σφάλμα", 
+        description: "Αποτυχία ενημέρωσης πελάτη. Παρακαλώ δοκιμάστε ξανά.", 
+        variant: "destructive" 
+      });
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleDeleteUser = async (userId: string) => {
+    if (!window.confirm("Είστε σίγουροι ότι θέλετε να διαγράψετε αυτόν τον χρήστη;")) {
+      return;
+    }
+
+    try {
+      await usersApi.delete(userId);
+      await loadData();
+      toast({ title: "Επιτυχία!", description: "Ο χρήστης διαγράφηκε επιτυχώς." });
+    } catch (error) {
+      // Failed to delete user - error handled with toast
+      toast({ 
+        title: "Σφάλμα", 
+        description: "Αποτυχία διαγραφής χρήστη. Παρακαλώ δοκιμάστε ξανά.", 
         variant: "destructive" 
       });
     }
   };
   
   const resetForm = () => {
-    setFormData({ name: "", email: "", phone: "", packageType: "", medicalHistory: "", termsAccepted: false, sendLoginDetails: true });
+    setFormData({ name: "", email: "", phone: "", packageType: "", medicalHistory: "", termsAccepted: false, sendLoginDetails: true, status: "active" });
   };
 
-  const getStatusBadge = (status) => {
+  const getStatusBadge = (status: string) => {
     switch (status) {
       case "active": return <Badge variant="default" className="bg-green-100 text-green-800 hover:bg-green-200">Ενεργός</Badge>;
       case "expired": return <Badge variant="destructive">Έληξε</Badge>;
@@ -245,7 +487,13 @@ export function UsersPage() {
                 <DialogTrigger asChild>
                   <Button className="bg-primary text-white hover:bg-primary/90"><UserPlus className="h-4 w-4 mr-2" />Νέος Πελάτης</Button>
                 </DialogTrigger>
-                <NewUserDialogContent formData={formData} setFormData={setFormData} handleCreateUser={handleCreateUser} packages={packages} />
+                <NewUserDialogContent 
+                  formData={formData} 
+                  setFormData={setFormData} 
+                  handleCreateUser={handleCreateUser} 
+                  packages={packages} 
+                  loading={actionLoading}
+                />
               </Dialog>
             </div>
 
@@ -270,14 +518,22 @@ export function UsersPage() {
                   </TableHeader>
                   <TableBody>
                     {loading ? (
-                      <TableRow><TableCell colSpan={5} className="text-center h-24">Φόρτωση...</TableCell></TableRow>
+                      <TableRow>
+                        <TableCell colSpan={5} className="text-center h-24">
+                          <Loader2 className="h-6 w-6 animate-spin mx-auto" />
+                        </TableCell>
+                      </TableRow>
                     ) : filteredUsers.length > 0 ? filteredUsers.map((user) => {
+                      // Get active package from user packages
                       const activePackage = user.packages?.find(p => p.status === 'active');
                       return (
                       <TableRow key={user.id} className="hover:bg-muted/50">
                         <TableCell>
                           <div className="flex items-center gap-3">
-                            <Avatar><AvatarImage src={user.avatar || undefined} /><AvatarFallback>{user.name.split(' ').map(n => n[0]).join('')}</AvatarFallback></Avatar>
+                            <Avatar>
+                              <AvatarImage src={user.avatar || undefined} />
+                              <AvatarFallback>{user.name.split(' ').map(n => n[0]).join('')}</AvatarFallback>
+                            </Avatar>
                             <span className="font-medium">{user.name}</span>
                           </div>
                         </TableCell>
@@ -286,16 +542,35 @@ export function UsersPage() {
                           <div className="text-muted-foreground text-sm">{user.phone}</div>
                         </TableCell>
                         <TableCell>
-                          <div>{activePackage?.name || 'Κανένα'}</div>
-                          <div className="text-muted-foreground text-sm">
-                            {activePackage ? `Απομένουν: ${isFinite(activePackage.remainingSessions) ? activePackage.remainingSessions : '∞'}` : ''}
-                          </div>
+                          <div>{user.membershipType || 'Κανένα'}</div>
+                          {activePackage && (
+                            <div className="text-muted-foreground text-sm">
+                              Απομένουν: {isFinite(activePackage.remainingSessions) ? activePackage.remainingSessions : '∞'}
+                            </div>
+                          )}
                         </TableCell>
                         <TableCell className="text-center">{getStatusBadge(user.status)}</TableCell>
                         <TableCell className="text-right">
-                          <Link to={`/users/${user.id}`} className={buttonVariants({ variant: "ghost", size: "icon" })} title="Προβολή"><Eye className="h-4 w-4" /></Link>
-                          <Button variant="ghost" size="icon" title="Επεξεργασία"><Edit className="h-4 w-4" /></Button>
-                          <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" title="Διαγραφή"><Trash2 className="h-4 w-4" /></Button>
+                          <Link to={`/users/${user.id}`} className={buttonVariants({ variant: "ghost", size: "icon" })} title="Προβολή">
+                            <Eye className="h-4 w-4" />
+                          </Link>
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            title="Επεξεργασία"
+                            onClick={() => handleEditUser(user)}
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="text-destructive hover:text-destructive" 
+                            title="Διαγραφή"
+                            onClick={() => handleDeleteUser(user.id)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
                         </TableCell>
                       </TableRow>
                     )}) : (
@@ -305,9 +580,22 @@ export function UsersPage() {
                 </Table>
               </CardContent>
             </Card>
+
+            {/* Edit User Dialog */}
+            <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+              {selectedUser && (
+                <EditUserDialogContent 
+                  user={selectedUser}
+                  formData={editFormData} 
+                  setFormData={setEditFormData} 
+                  handleUpdateUser={handleUpdateUser} 
+                  loading={actionLoading}
+                />
+              )}
+            </Dialog>
           </main>
         </div>
       </div>
     </SidebarProvider>
   );
-} 
+}

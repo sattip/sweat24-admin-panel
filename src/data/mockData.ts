@@ -1,6 +1,103 @@
 // apps/admin-panel/src/data/mockData.ts
 import { format } from "date-fns";
 
+// Settings Types
+export type GymSettings = {
+  name: string;
+  address: string;
+  phone: string;
+  email: string;
+  website: string;
+  openingHours: string;
+  maxCapacity: number;
+  enableWaitlist: boolean;
+  cancellationPolicy: number;
+  enableNotifications: boolean;
+  enableSMS: boolean;
+  enableEmail: boolean;
+};
+
+export type SystemSettings = {
+  autoBackup: boolean;
+  backupFrequency: string;
+  sessionTimeout: number;
+  enableLogging: boolean;
+  debugMode: boolean;
+  maintenanceMode: boolean;
+  maxFileSize: number;
+  allowedFileTypes: string;
+};
+
+export type PricingSettings = {
+  basicPackage: number;
+  premiumPackage: number;
+  unlimitedPackage: number;
+  personalTraining: number;
+  emsSession: number;
+  pilatesSession: number;
+  trialSession: number;
+  currency: string;
+  taxRate: number;
+};
+
+export type Settings = {
+  gym: GymSettings;
+  system: SystemSettings;
+  pricing: PricingSettings;
+};
+
+// Assessment Types
+export type BodyMeasurement = {
+  id?: string;
+  clientId: string;
+  date: string;
+  weight: number;
+  height: number;
+  waist: number;
+  hips: number;
+  chest: number;
+  rightArm: number;
+  rightThigh: number;
+  bodyFat: number;
+  bmi?: number;
+  comments: string;
+};
+
+export type EnduranceTest = {
+  id?: string;
+  clientId: string;
+  date: string;
+  crunches: number;
+  pushups: number;
+  squats: number;
+  plank: number;
+  jumpingJacks: number;
+  rowing: string;
+  comments: string;
+};
+
+export type StrengthLog = {
+  id?: string;
+  clientId: string;
+  date: string;
+  squat: string;
+  benchPress: string;
+  deadlift: string;
+  shoulderPress: string;
+  pullups: string;
+  rowing: string;
+  comments: string;
+};
+
+export type Assessment = {
+  id: string;
+  clientId: string;
+  clientName: string;
+  type: 'body' | 'endurance' | 'strength';
+  date: string;
+  data: BodyMeasurement | EnduranceTest | StrengthLog;
+};
+
 export type UserPackage = {
   id: string;
   packageId: string;

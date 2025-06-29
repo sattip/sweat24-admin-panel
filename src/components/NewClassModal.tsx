@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
@@ -14,9 +14,9 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "./ui/dialog";
-import { Plus, Calendar as CalendarIcon } from "lucide-react";
+import { Plus, Calendar as CalendarIcon, Loader2 } from "lucide-react";
 import { useToast } from "../hooks/use-toast";
-import { mockInstructorsData } from "../data/mockData";
+import { classesApi, instructorsApi } from "../services/api";
 import { cn } from "../lib/utils";
 import { format } from "date-fns";
 import { el } from "date-fns/locale";
@@ -48,6 +48,9 @@ export function NewClassModal({
   onClassCreated 
 }: NewClassModalProps) {
   const { toast } = useToast();
+  const [instructors, setInstructors] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isCreating, setIsCreating] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
     type: "",
@@ -60,7 +63,31 @@ export function NewClassModal({
     description: "",
   });
 
-  const handleCreateClass = () => {
+  // Fetch instructors on component mount
+  useEffect(() => {
+    const fetchInstructors = async () => {
+      try {
+        setIsLoading(true);
+        const response = await instructorsApi.getAll();
+        setInstructors(response.data || response || []);
+      } catch (error) {
+        console.error('Error fetching instructors:', error);
+        toast({
+          title: "Σφάλμα",
+          description: "Αποτυχία φόρτωσης προπονητών.",
+          variant: "destructive",
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    if (isOpen) {
+      fetchInstructors();
+    }
+  }, [isOpen, toast]);
+
+  const handleCreateClass = async () => {
     if (!formData.name || !formData.type || !formData.instructor || !formData.time || !formData.location) {
       toast({
         title: "Σφάλμα",
@@ -70,34 +97,46 @@ export function NewClassModal({
       return;
     }
 
-    const newClass = {
-      id: Date.now().toString(),
-      name: formData.name,
-      type: formData.type,
-      instructor: formData.instructor,
-      date: format(formData.date, "yyyy-MM-dd"),
-      time: formData.time,
-      duration: formData.duration,
-      maxParticipants: formData.maxParticipants,
-      currentParticipants: 0,
-      location: formData.location,
-      description: formData.description,
-      status: "active" as const,
-    };
+    try {
+      setIsCreating(true);
+      
+      const newClassData = {
+        name: formData.name,
+        type: formData.type,
+        instructor_id: formData.instructor,
+        date: format(formData.date, "yyyy-MM-dd"),
+        time: formData.time,
+        duration: formData.duration,
+        max_participants: formData.maxParticipants,
+        location: formData.location,
+        description: formData.description,
+      };
 
-    toast({
-      title: "Μάθημα Δημιουργήθηκε! 🎯",
-      description: `Το μάθημα "${formData.name}" προγραμματίστηκε επιτυχώς για ${format(formData.date, "dd/MM/yyyy", { locale: el })} στις ${formData.time}.`,
-      duration: 5000
-    });
+      const response = await classesApi.create(newClassData);
+      const newClass = response.data || response;
 
-    if (onClassCreated) {
-      onClassCreated(newClass);
-    }
+      toast({
+        title: "Επιτυχία!",
+        description: `Το μάθημα ${formData.name} δημιουργήθηκε με επιτυχία.`,
+      });
 
-    resetForm();
-    if (onOpenChange) {
-      onOpenChange(false);
+      if (onClassCreated) {
+        onClassCreated(newClass);
+      }
+
+      resetForm();
+      if (onOpenChange) {
+        onOpenChange(false);
+      }
+    } catch (error) {
+      console.error('Error creating class:', error);
+      toast({
+        title: "Σφάλμα",
+        description: "Αποτυχία δημιουργίας μαθήματος. Παρακαλώ δοκιμάστε ξανά.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsCreating(false);
     }
   };
 
@@ -163,11 +202,17 @@ export function NewClassModal({
                 <SelectValue placeholder="Επιλέξτε προπονητή" />
               </SelectTrigger>
               <SelectContent>
-                {mockInstructorsData.map((instructor) => (
-                  <SelectItem key={instructor.id} value={instructor.name}>
-                    {instructor.name}
-                  </SelectItem>
-                ))}
+                {isLoading ? (
+                  <div className="p-2 text-center">
+                    <Loader2 className="h-4 w-4 animate-spin mx-auto" />
+                  </div>
+                ) : (
+                  instructors.map((instructor) => (
+                    <SelectItem key={instructor.id} value={instructor.id}>
+                      {instructor.name}
+                    </SelectItem>
+                  ))
+                )}
               </SelectContent>
             </Select>
           </div>
@@ -262,8 +307,15 @@ export function NewClassModal({
         <Button variant="outline" onClick={() => onOpenChange && onOpenChange(false)}>
           Ακύρωση
         </Button>
-        <Button onClick={handleCreateClass}>
-          Δημιουργία Μαθήματος
+        <Button onClick={handleCreateClass} disabled={isCreating}>
+          {isCreating ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Δημιουργία...
+            </>
+          ) : (
+            "Δημιουργία Μαθήματος"
+          )}
         </Button>
       </div>
     </DialogContent>

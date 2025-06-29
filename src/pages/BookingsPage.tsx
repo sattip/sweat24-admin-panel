@@ -42,10 +42,11 @@ import {
   Plus,
   X,
   Loader2,
+  Trash2,
 } from "lucide-react";
 import { format } from "date-fns";
 import { el } from "date-fns/locale";
-import { useToast } from "@/components/ui/use-toast";
+import { useToast } from "@/hooks/use-toast";
 import { bookingsApi, usersApi, classesApi, instructorsApi } from "@/services/api";
 import type { Booking, User as UserType, Class, Instructor } from "@/data/mockData";
 import { notifyGracefulCancellation } from "@/utils/notifications";
@@ -81,6 +82,7 @@ export function BookingsPage() {
     time: '',
     type: 'group'
   });
+  const [isDeleting, setIsDeleting] = useState<string | null>(null);
 
   // Fetch data on component mount
   useEffect(() => {
@@ -252,11 +254,34 @@ export function BookingsPage() {
     }
   };
 
+  const handleDeleteBooking = async (bookingId: string) => {
+    try {
+      setIsDeleting(bookingId);
+      
+      await bookingsApi.delete(bookingId);
+      setBookings(bookings.filter(booking => booking.id !== bookingId));
+
+      toast({
+        title: "Επιτυχία!",
+        description: "Η κράτηση διαγράφηκε οριστικά.",
+      });
+    } catch (error) {
+      console.error('Error deleting booking:', error);
+      toast({
+        title: "Σφάλμα",
+        description: "Αποτυχία διαγραφής κράτησης.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsDeleting(null);
+    }
+  };
+
   // Filter bookings based on search term, status, and date
   const filteredBookings = bookings.filter(booking => {
     const matchesSearch = searchTerm === "" || 
-      booking.customer_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      booking.class_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (booking.customer_name || booking.customerName)?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (booking.class_name || booking.className)?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       booking.instructor?.toLowerCase().includes(searchTerm.toLowerCase());
     
     const matchesStatus = statusFilter === "all" || booking.status === statusFilter;
@@ -598,19 +623,19 @@ export function BookingsPage() {
                             <Avatar className="h-8 w-8">
                               <AvatarImage src={booking.avatar} />
                               <AvatarFallback>
-                                {booking.customer_name?.slice(0, 2).toUpperCase()}
+                                {(booking.customer_name || booking.customerName)?.slice(0, 2).toUpperCase()}
                               </AvatarFallback>
                             </Avatar>
                             <div>
-                              <div className="font-medium">{booking.customer_name}</div>
+                              <div className="font-medium">{booking.customer_name || booking.customerName}</div>
                               <div className="text-sm text-muted-foreground">
-                                {booking.customer_email}
+                                {booking.customer_email || booking.customerEmail}
                               </div>
                             </div>
                           </div>
                         </TableCell>
                         <TableCell>
-                          <div className="font-medium">{booking.class_name}</div>
+                          <div className="font-medium">{booking.class_name || booking.className}</div>
                           <div className="text-sm text-muted-foreground">{booking.location}</div>
                         </TableCell>
                         <TableCell>{booking.instructor}</TableCell>
@@ -644,6 +669,20 @@ export function BookingsPage() {
                                 onClick={() => handleCancelBooking(booking.id)}
                               >
                                 <XCircle className="h-4 w-4" />
+                              </Button>
+                            )}
+                            {booking.status === 'cancelled' && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleDeleteBooking(booking.id)}
+                                disabled={isDeleting === booking.id}
+                              >
+                                {isDeleting === booking.id ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  <Trash2 className="h-4 w-4" />
+                                )}
                               </Button>
                             )}
                           </div>

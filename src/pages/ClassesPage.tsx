@@ -51,7 +51,7 @@ import {
   User,
   Loader2,
 } from "lucide-react";
-import { mockClassesData, mockInstructorsData } from "@/data/mockData";
+// Removed mock data imports - using API instead
 import type { Class, Instructor } from "@/data/mockData";
 import { classesApi, instructorsApi } from "@/services/api";
 import { useToast } from "@/hooks/use-toast";
@@ -76,6 +76,9 @@ export function ClassesPage() {
   const [isCreating, setIsCreating] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date());
+  const [editingClass, setEditingClass] = useState<any | null>(null);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     name: "",
     type: "",
@@ -187,6 +190,88 @@ export function ClassesPage() {
       location: "",
       description: "",
     });
+  };
+
+  const handleEditClass = (cls: any) => {
+    setEditingClass(cls);
+    setFormData({
+      name: cls.name,
+      type: cls.type,
+      instructor: cls.instructor_id || cls.instructor?.id || '',
+      date: new Date(cls.date),
+      time: cls.time,
+      duration: cls.duration,
+      maxParticipants: cls.max_participants || cls.maxParticipants,
+      location: cls.location,
+      description: cls.description || '',
+    });
+    setIsEditDialogOpen(true);
+  };
+
+  const handleUpdateClass = async () => {
+    if (!editingClass) return;
+    
+    try {
+      setIsCreating(true);
+      
+      const updateData = {
+        name: formData.name,
+        type: formData.type,
+        instructor_id: formData.instructor,
+        date: format(formData.date, "yyyy-MM-dd"),
+        time: formData.time,
+        duration: formData.duration,
+        max_participants: formData.maxParticipants,
+        location: formData.location,
+        description: formData.description,
+      };
+
+      const response = await classesApi.update(editingClass.id, updateData);
+      const updatedClass = response.data || response;
+      
+      setClasses(classes.map(cls => cls.id === editingClass.id ? updatedClass : cls));
+      setIsEditDialogOpen(false);
+      setEditingClass(null);
+
+      toast({
+        title: "Επιτυχία!",
+        description: `Το μάθημα ${formData.name} ενημερώθηκε με επιτυχία.`,
+      });
+
+      resetForm();
+    } catch (error) {
+      console.error('Error updating class:', error);
+      toast({
+        title: "Σφάλμα",
+        description: "Αποτυχία ενημέρωσης μαθήματος. Παρακαλώ δοκιμάστε ξανά.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsCreating(false);
+    }
+  };
+
+  const handleDeleteClass = async (classId: string) => {
+    try {
+      setIsDeleting(classId);
+      
+      await classesApi.delete(classId);
+      setClasses(classes.filter(cls => cls.id !== classId));
+
+      toast({
+        title: "Επιτυχία!",
+        description: "Το μάθημα διαγράφηκε με επιτυχία.",
+      });
+    } catch (error) {
+      console.error('Error deleting class:', error);
+      toast({
+        title: "Σφάλμα",
+        description: "Αποτυχία διαγραφής μαθήματος. Παρακαλώ δοκιμάστε ξανά.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsDeleting(null);
+    }
   };
 
   const getStatusBadge = (status: string, current: number, max: number) => {
@@ -611,11 +696,24 @@ export function ClassesPage() {
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center space-x-2">
-                            <Button size="sm" variant="ghost">
+                            <Button 
+                              size="sm" 
+                              variant="ghost"
+                              onClick={() => handleEditClass(cls)}
+                            >
                               <Edit className="h-4 w-4" />
                             </Button>
-                            <Button size="sm" variant="ghost">
-                              <Trash2 className="h-4 w-4" />
+                            <Button 
+                              size="sm" 
+                              variant="ghost"
+                              onClick={() => handleDeleteClass(cls.id)}
+                              disabled={isDeleting === cls.id}
+                            >
+                              {isDeleting === cls.id ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <Trash2 className="h-4 w-4" />
+                              )}
                             </Button>
                           </div>
                         </TableCell>
@@ -625,6 +723,163 @@ export function ClassesPage() {
                 </Table>
               </CardContent>
             </Card>
+
+            {/* Edit Class Dialog */}
+            <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+              <DialogContent className="max-w-2xl">
+                <DialogHeader>
+                  <DialogTitle>Επεξεργασία Μαθήματος</DialogTitle>
+                  <DialogDescription>
+                    Ενημερώστε τις πληροφορίες του μαθήματος
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="edit-name">Όνομα Μαθήματος *</Label>
+                      <Input
+                        id="edit-name"
+                        value={formData.name}
+                        onChange={(e) => setFormData({...formData, name: e.target.value})}
+                        placeholder="π.χ. HIIT Blast"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="edit-type">Τύπος *</Label>
+                      <Select value={formData.type} onValueChange={(value) => setFormData({...formData, type: value})}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Επιλέξτε τύπο" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {classTypes.map((type) => (
+                            <SelectItem key={type.value} value={type.value}>
+                              {type.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="edit-instructor">Προπονητής *</Label>
+                      <Select value={formData.instructor} onValueChange={(value) => setFormData({...formData, instructor: value})}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Επιλέξτε προπονητή" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {instructors.map((instructor) => (
+                            <SelectItem key={instructor.id} value={instructor.id}>
+                              {instructor.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label htmlFor="edit-location">Χώρος *</Label>
+                      <Input
+                        id="edit-location"
+                        value={formData.location}
+                        onChange={(e) => setFormData({...formData, location: e.target.value})}
+                        placeholder="π.χ. Main Floor, Studio A"
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-3 gap-4">
+                    <div>
+                      <Label>Ημερομηνία *</Label>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            className={cn(
+                              "w-full justify-start text-left font-normal",
+                              !formData.date && "text-muted-foreground"
+                            )}
+                          >
+                            <CalendarIcon className="mr-2 h-4 w-4" />
+                            {formData.date ? format(formData.date, "dd/MM/yyyy", { locale: el }) : "Επιλέξτε ημερομηνία"}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0">
+                          <Calendar
+                            mode="single"
+                            selected={formData.date}
+                            onSelect={(date) => date && setFormData({...formData, date})}
+                            initialFocus
+                          />
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+                    <div>
+                      <Label htmlFor="edit-time">Ώρα *</Label>
+                      <Select value={formData.time} onValueChange={(value) => setFormData({...formData, time: value})}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Ώρα" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {timeSlots.map((time) => (
+                            <SelectItem key={time} value={time}>
+                              {time}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label htmlFor="edit-duration">Διάρκεια (λεπτά)</Label>
+                      <Input
+                        id="edit-duration"
+                        type="number"
+                        value={formData.duration}
+                        onChange={(e) => setFormData({...formData, duration: parseInt(e.target.value)})}
+                        placeholder="60"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <Label htmlFor="edit-maxParticipants">Μέγιστοι Συμμετέχοντες</Label>
+                    <Input
+                      id="edit-maxParticipants"
+                      type="number"
+                      value={formData.maxParticipants}
+                      onChange={(e) => setFormData({...formData, maxParticipants: parseInt(e.target.value)})}
+                      placeholder="12"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="edit-description">Περιγραφή</Label>
+                    <Textarea
+                      id="edit-description"
+                      value={formData.description}
+                      onChange={(e) => setFormData({...formData, description: e.target.value})}
+                      placeholder="Περιγραφή του μαθήματος..."
+                      rows={3}
+                    />
+                  </div>
+                </div>
+                <div className="flex justify-end space-x-2">
+                  <Button variant="outline" onClick={() => {
+                    setIsEditDialogOpen(false);
+                    setEditingClass(null);
+                    resetForm();
+                  }}>
+                    Ακύρωση
+                  </Button>
+                  <Button onClick={handleUpdateClass} disabled={isCreating}>
+                    {isCreating ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Ενημέρωση...
+                      </>
+                    ) : (
+                      "Ενημέρωση Μαθήματος"
+                    )}
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
           </main>
         </div>
       </div>
