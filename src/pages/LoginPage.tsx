@@ -1,32 +1,57 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/components/ui/use-toast";
-import { Eye, EyeOff, LogIn, Loader2 } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Eye, EyeOff, LogIn, Loader2, AlertCircle } from "lucide-react";
 
 export function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [localError, setLocalError] = useState<string | null>(null);
   
-  const { login } = useAuth();
+  const { login, isAuthenticated, error: authError, clearError } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const { toast } = useToast();
+
+  // Get the redirect location
+  const from = location.state?.from?.pathname || "/";
+
+  // Redirect if already authenticated
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate(from, { replace: true });
+    }
+  }, [isAuthenticated, navigate, from]);
+
+  // Clear errors when component unmounts
+  useEffect(() => {
+    return () => {
+      clearError();
+    };
+  }, [clearError]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setLocalError(null);
     
+    // Validation
     if (!email || !password) {
-      toast({
-        title: "Σφάλμα",
-        description: "Παρακαλώ συμπληρώστε όλα τα πεδία.",
-        variant: "destructive",
-      });
+      setLocalError("Παρακαλώ συμπληρώστε όλα τα πεδία.");
+      return;
+    }
+
+    // Email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      setLocalError("Παρακαλώ εισάγετε έγκυρη διεύθυνση email.");
       return;
     }
 
@@ -34,22 +59,31 @@ export function LoginPage() {
     
     try {
       await login(email, password);
+      
       toast({
         title: "Επιτυχής σύνδεση!",
         description: "Καλώς ήρθατε στο SWEAT24 Admin Panel.",
       });
-      navigate("/");
-    } catch (error) {
+      
+      // Navigation is handled in the AuthContext after successful login
+    } catch (error: any) {
       console.error("Login failed:", error);
+      
+      // Show specific error message
+      const errorMessage = error.message || "Λανθασμένα στοιχεία σύνδεσης. Παρακαλώ δοκιμάστε ξανά.";
+      
       toast({
         title: "Σφάλμα σύνδεσης",
-        description: "Λανθασμένα στοιχεία σύνδεσης. Παρακαλώ δοκιμάστε ξανά.",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
       setIsLoading(false);
     }
   };
+
+  // Combine auth error and local error
+  const displayError = localError || authError;
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/10 via-background to-secondary/10 p-4">
@@ -66,6 +100,13 @@ export function LoginPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
+          {displayError && (
+            <Alert variant="destructive" className="mb-4">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>{displayError}</AlertDescription>
+            </Alert>
+          )}
+
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
@@ -74,9 +115,15 @@ export function LoginPage() {
                 type="email"
                 placeholder="admin@sweat24.com"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                  setLocalError(null);
+                  clearError();
+                }}
                 disabled={isLoading}
                 required
+                autoComplete="email"
+                autoFocus
               />
             </div>
             
@@ -88,9 +135,14 @@ export function LoginPage() {
                   type={showPassword ? "text" : "password"}
                   placeholder="Εισάγετε τον κωδικό σας"
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  onChange={(e) => {
+                    setPassword(e.target.value);
+                    setLocalError(null);
+                    clearError();
+                  }}
                   disabled={isLoading}
                   required
+                  autoComplete="current-password"
                 />
                 <Button
                   type="button"
@@ -99,6 +151,7 @@ export function LoginPage() {
                   className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
                   onClick={() => setShowPassword(!showPassword)}
                   disabled={isLoading}
+                  tabIndex={-1}
                 >
                   {showPassword ? (
                     <EyeOff className="h-4 w-4" />
@@ -135,6 +188,12 @@ export function LoginPage() {
               <strong>Κωδικός:</strong> password
             </p>
           </div>
+
+          {location.state?.from && (
+            <div className="mt-4 text-center text-sm text-muted-foreground">
+              <p>Πρέπει να συνδεθείτε για να δείτε αυτή τη σελίδα.</p>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

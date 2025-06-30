@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -21,14 +21,21 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Receipt, Plus } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
-import { mockBusinessExpenses } from "@/data/mockData";
+import { businessExpensesApi } from "@/services/api";
 import type { BusinessExpense } from "@/data/mockData";
 import { format } from "date-fns";
+import { useAuth } from "@/contexts/AuthContext";
 
-export function BusinessExpenseModal() {
+interface BusinessExpenseModalProps {
+  onUpdate?: () => void;
+}
+
+export function BusinessExpenseModal({ onUpdate }: BusinessExpenseModalProps) {
   const { toast } = useToast();
+  const { user } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
-  const [expenses, setExpenses] = useState<BusinessExpense[]>(mockBusinessExpenses);
+  const [expenses, setExpenses] = useState<BusinessExpense[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
     category: '' as 'utilities' | 'equipment' | 'maintenance' | 'supplies' | 'marketing' | 'other' | '',
     subcategory: '',
@@ -48,7 +55,33 @@ export function BusinessExpenseModal() {
     { value: 'other', label: 'Άλλα' }
   ];
 
-  const handleAddExpense = () => {
+  // Fetch data when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      fetchExpenses();
+    }
+  }, [isOpen]);
+
+  const fetchExpenses = async () => {
+    try {
+      setIsLoading(true);
+      const response = await businessExpensesApi.getAll();
+      // Handle response data
+      const expensesData = Array.isArray(response) ? response : (response.data || []);
+      setExpenses(expensesData);
+    } catch (error) {
+      console.error('Error fetching expenses:', error);
+      toast({
+        title: "Σφάλμα",
+        description: "Αποτυχία φόρτωσης εξόδων.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleAddExpense = async () => {
     if (!formData.category || !formData.description || !formData.amount) {
       toast({
         title: "Σφάλμα",
@@ -68,65 +101,116 @@ export function BusinessExpenseModal() {
       return;
     }
 
-    const newExpense: BusinessExpense = {
-      id: `exp_${Date.now()}`,
-      category: formData.category as any,
-      subcategory: formData.subcategory || formData.category,
-      description: formData.description,
-      amount: amount,
-      date: format(new Date(), 'yyyy-MM-dd'),
-      vendor: formData.vendor,
-      paymentMethod: formData.paymentMethod,
-      approved: false,
-      notes: formData.notes
-    };
+    try {
+      setIsLoading(true);
 
-    setExpenses(prev => [newExpense, ...prev]);
+      const newExpense = {
+        category: formData.category as any,
+        subcategory: formData.subcategory || formData.category,
+        description: formData.description,
+        amount: amount,
+        date: format(new Date(), 'yyyy-MM-dd'),
+        vendor: formData.vendor,
+        paymentMethod: formData.paymentMethod,
+        approved: false,
+        notes: formData.notes
+      };
 
-    toast({
-      title: "Έξοδο Καταχωρήθηκε",
-      description: `Το έξοδο €${amount} καταχωρήθηκε και εκκρεμεί έγκριση.`
-    });
+      await businessExpensesApi.create(newExpense);
 
-    // Reset form
-    setFormData({
-      category: '' as any,
-      subcategory: '',
-      description: '',
-      amount: '',
-      vendor: '',
-      paymentMethod: 'cash',
-      notes: ''
-    });
+      toast({
+        title: "Έξοδο Καταχωρήθηκε",
+        description: `Το έξοδο €${amount} καταχωρήθηκε και εκκρεμεί έγκριση.`
+      });
 
-    setIsOpen(false);
+      // Reset form
+      setFormData({
+        category: '' as any,
+        subcategory: '',
+        description: '',
+        amount: '',
+        vendor: '',
+        paymentMethod: 'cash',
+        notes: ''
+      });
+
+      // Refresh data
+      await fetchExpenses();
+      if (onUpdate) onUpdate();
+
+      setIsOpen(false);
+    } catch (error) {
+      console.error('Error creating expense:', error);
+      toast({
+        title: "Σφάλμα",
+        description: "Αποτυχία καταχώρησης εξόδου.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const handleApprove = (expenseId: string) => {
-    setExpenses(prev => prev.map(exp => 
-      exp.id === expenseId 
-        ? { ...exp, approved: true, approvedBy: "admin1" }
-        : exp
-    ));
+  const handleApprove = async (expenseId: string) => {
+    try {
+      setIsLoading(true);
+      await businessExpensesApi.update(expenseId, { 
+        approved: true,
+        approvedBy: user?.id || user?.email || "admin"
+      });
 
-    toast({
-      title: "Έξοδο Εγκρίθηκε",
-      description: "Το έξοδο εγκρίθηκε επιτυχώς."
-    });
+      toast({
+        title: "Έξοδο Εγκρίθηκε",
+        description: "Το έξοδο εγκρίθηκε επιτυχώς."
+      });
+
+      // Refresh data
+      await fetchExpenses();
+      if (onUpdate) onUpdate();
+    } catch (error) {
+      console.error('Error approving expense:', error);
+      toast({
+        title: "Σφάλμα",
+        description: "Αποτυχία έγκρισης εξόδου.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const handleReject = (expenseId: string) => {
-    setExpenses(prev => prev.filter(exp => exp.id !== expenseId));
+  const handleReject = async (expenseId: string) => {
+    try {
+      setIsLoading(true);
+      await businessExpensesApi.delete(expenseId);
 
-    toast({
-      title: "Έξοδο Απορρίφθηκε",
-      description: "Το έξοδο απορρίφθηκε και διαγράφηκε.",
-      variant: "destructive"
-    });
+      toast({
+        title: "Έξοδο Απορρίφθηκε",
+        description: "Το έξοδο απορρίφθηκε και διαγράφηκε.",
+        variant: "destructive"
+      });
+
+      // Refresh data
+      await fetchExpenses();
+      if (onUpdate) onUpdate();
+    } catch (error) {
+      console.error('Error rejecting expense:', error);
+      toast({
+        title: "Σφάλμα",
+        description: "Αποτυχία απόρριψης εξόδου.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const pendingExpenses = expenses.filter(exp => !exp.approved);
   const approvedExpenses = expenses.filter(exp => exp.approved);
+
+  // Calculate today's expenses
+  const todayExpenses = expenses.filter(exp => exp.date === format(new Date(), 'yyyy-MM-dd'));
+  const todayTotal = todayExpenses.reduce((sum, exp) => sum + exp.amount, 0);
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
@@ -150,10 +234,7 @@ export function BusinessExpenseModal() {
             <div className="p-4 border rounded-lg">
               <div className="text-sm text-muted-foreground">Σημερινά Έξοδα</div>
               <div className="text-2xl font-bold text-red-600">
-                €{expenses
-                  .filter(exp => exp.date === format(new Date(), 'yyyy-MM-dd'))
-                  .reduce((sum, exp) => sum + exp.amount, 0)
-                  .toFixed(2)}
+                €{todayTotal.toFixed(2)}
               </div>
             </div>
             <div className="p-4 border rounded-lg">
@@ -250,9 +331,9 @@ export function BusinessExpenseModal() {
                 />
               </div>
 
-              <Button onClick={handleAddExpense} className="w-fit">
+              <Button onClick={handleAddExpense} className="w-fit" disabled={isLoading}>
                 <Plus className="h-4 w-4 mr-2" />
-                Καταχώρηση Εξόδου
+                {isLoading ? 'Περιμένετε...' : 'Καταχώρηση Εξόδου'}
               </Button>
             </div>
           </div>
@@ -278,6 +359,7 @@ export function BusinessExpenseModal() {
                         variant="outline"
                         className="bg-green-50 border-green-200 text-green-700 hover:bg-green-100"
                         onClick={() => handleApprove(expense.id)}
+                        disabled={isLoading}
                       >
                         Έγκριση
                       </Button>
@@ -286,6 +368,7 @@ export function BusinessExpenseModal() {
                         variant="outline"
                         className="bg-red-50 border-red-200 text-red-700 hover:bg-red-100"
                         onClick={() => handleReject(expense.id)}
+                        disabled={isLoading}
                       >
                         Απόρριψη
                       </Button>
@@ -304,12 +387,24 @@ export function BusinessExpenseModal() {
 // Export also the action functions for use in other components
 export { BusinessExpenseModal as default };
 export const useExpenseActions = () => ({
-  handleApprove: (expenseId: string) => {
+  handleApprove: async (expenseId: string) => {
     // This would be connected to a global state in a real app
-    console.log('Approving expense:', expenseId);
+    try {
+      await businessExpensesApi.update(expenseId, { approved: true });
+      return true;
+    } catch (error) {
+      console.error('Error approving expense:', error);
+      return false;
+    }
   },
-  handleReject: (expenseId: string) => {
+  handleReject: async (expenseId: string) => {
     // This would be connected to a global state in a real app  
-    console.log('Rejecting expense:', expenseId);
+    try {
+      await businessExpensesApi.delete(expenseId);
+      return true;
+    } catch (error) {
+      console.error('Error rejecting expense:', error);
+      return false;
+    }
   }
-}); 
+});

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { AdminSidebar } from "@/components/AdminSidebar";
 import { AdminHeader } from "@/components/AdminHeader";
@@ -48,470 +48,71 @@ import {
   Calculator,
   Save,
   Camera,
+  Loader2,
+  AlertCircle,
 } from "lucide-react";
+import { useToast } from "@/components/ui/use-toast";
+import { assessmentsApi, usersApi } from "@/services/apiService";
+import type { 
+  Assessment, 
+  BodyMeasurement, 
+  EnduranceTest, 
+  StrengthLog,
+  User as UserType 
+} from "@/data/mockData";
 
-// Mock data για σωματομετρήσεις
-const bodyMeasurements = [
-  {
-    id: "1",
-    clientName: "Γιάννης Παπαδόπουλος",
-    measurements: [
-      {
-        date: "2024-01-15",
-        weight: 85.5,
-        height: 178,
-        waist: 92,
-        hips: 98,
-        chest: 102,
-        rightArm: 32,
-        rightThigh: 58,
-        bodyFat: 18.5,
-        bmi: 27.0,
-        comments: "Αρχική μέτρηση"
-      },
-      {
-        date: "2024-05-24",
-        weight: 78.2,
-        height: 178,
-        waist: 84,
-        hips: 95,
-        chest: 105,
-        rightArm: 35,
-        rightThigh: 55,
-        bodyFat: 14.2,
-        bmi: 24.7,
-        comments: "Εξαιρετική πρόοδος!"
-      }
-    ]
-  },
-  {
-    id: "2",
-    clientName: "Μαρία Κωνσταντίνου",
-    measurements: [
-      {
-        date: "2024-02-10",
-        weight: 68.0,
-        height: 165,
-        waist: 75,
-        hips: 95,
-        chest: 88,
-        rightArm: 26,
-        rightThigh: 52,
-        bodyFat: 22.8,
-        bmi: 25.0,
-        comments: "Αρχική αξιολόγηση"
-      },
-      {
-        date: "2024-05-20",
-        weight: 63.5,
-        height: 165,
-        waist: 70,
-        hips: 92,
-        chest: 90,
-        rightArm: 28,
-        rightThigh: 50,
-        bodyFat: 19.2,
-        bmi: 23.3,
-        comments: "Καλή πρόοδος"
-      }
-    ]
-  },
-  {
-    id: "3",
-    clientName: "Κώστας Δημητρίου",
-    measurements: [
-      {
-        date: "2024-01-08",
-        weight: 95.2,
-        height: 182,
-        waist: 105,
-        hips: 108,
-        chest: 112,
-        rightArm: 38,
-        rightThigh: 65,
-        bodyFat: 24.5,
-        bmi: 28.7,
-        comments: "Υπερβάλλον βάρος"
-      },
-      {
-        date: "2024-05-18",
-        weight: 88.1,
-        height: 182,
-        waist: 98,
-        hips: 102,
-        chest: 115,
-        rightArm: 40,
-        rightThigh: 62,
-        bodyFat: 20.1,
-        bmi: 26.6,
-        comments: "Εξαιρετική βελτίωση!"
-      }
-    ]
-  },
-  {
-    id: "4",
-    clientName: "Ελένη Παπαδάκη",
-    measurements: [
-      {
-        date: "2024-03-01",
-        weight: 58.5,
-        height: 160,
-        waist: 65,
-        hips: 85,
-        chest: 82,
-        rightArm: 24,
-        rightThigh: 48,
-        bodyFat: 18.5,
-        bmi: 22.9,
-        comments: "Καλή φυσική κατάσταση"
-      },
-      {
-        date: "2024-05-15",
-        weight: 59.2,
-        height: 160,
-        waist: 64,
-        hips: 86,
-        chest: 84,
-        rightArm: 25,
-        rightThigh: 49,
-        bodyFat: 17.8,
-        bmi: 23.1,
-        comments: "Μυϊκή ανάπτυξη"
-      }
-    ]
-  },
-  {
-    id: "5",
-    clientName: "Νίκος Αλεξάνδρου",
-    measurements: [
-      {
-        date: "2024-02-20",
-        weight: 82.0,
-        height: 175,
-        waist: 88,
-        hips: 96,
-        chest: 98,
-        rightArm: 34,
-        rightThigh: 56,
-        bodyFat: 20.2,
-        bmi: 26.8,
-        comments: "Μέτρια φυσική κατάσταση"
-      },
-      {
-        date: "2024-05-10",
-        weight: 81.5,
-        height: 175,
-        waist: 89,
-        hips: 97,
-        chest: 99,
-        rightArm: 34,
-        rightThigh: 57,
-        bodyFat: 20.8,
-        bmi: 26.6,
-        comments: "Σταθερή κατάσταση"
-      }
-    ]
-  }
-];
-
-// Mock data για μετρήσεις αντοχής
-const enduranceTests = [
-  {
-    id: "1",
-    clientName: "Γιάννης Παπαδόπουλος",
-    tests: [
-      {
-        date: "2024-01-15",
-        crunches: 25,
-        pushups: 12,
-        squats: 30,
-        plank: 45,
-        jumpingJacks: 40,
-        rowing: "40kg x 10",
-        comments: "Αρχική αξιολόγηση"
-      },
-      {
-        date: "2024-05-24",
-        crunches: 45,
-        pushups: 28,
-        squats: 55,
-        plank: 120,
-        jumpingJacks: 70,
-        rowing: "65kg x 10",
-        comments: "Μεγάλη βελτίωση σε όλους τους τομείς"
-      }
-    ]
-  },
-  {
-    id: "2",
-    clientName: "Μαρία Κωνσταντίνου",
-    tests: [
-      {
-        date: "2024-02-10",
-        crunches: 35,
-        pushups: 8,
-        squats: 40,
-        plank: 60,
-        jumpingJacks: 50,
-        rowing: "25kg x 10",
-        comments: "Καλή αρχική κατάσταση"
-      },
-      {
-        date: "2024-05-20",
-        crunches: 50,
-        pushups: 15,
-        squats: 60,
-        plank: 90,
-        jumpingJacks: 75,
-        rowing: "35kg x 10",
-        comments: "Σταθερή πρόοδος"
-      }
-    ]
-  },
-  {
-    id: "3",
-    clientName: "Κώστας Δημητρίου",
-    tests: [
-      {
-        date: "2024-01-08",
-        crunches: 15,
-        pushups: 5,
-        squats: 20,
-        plank: 30,
-        jumpingJacks: 25,
-        rowing: "50kg x 8",
-        comments: "Χαμηλή αντοχή"
-      },
-      {
-        date: "2024-05-18",
-        crunches: 40,
-        pushups: 20,
-        squats: 45,
-        plank: 85,
-        jumpingJacks: 60,
-        rowing: "70kg x 10",
-        comments: "Εντυπωσιακή βελτίωση!"
-      }
-    ]
-  },
-  {
-    id: "4",
-    clientName: "Ελένη Παπαδάκη",
-    tests: [
-      {
-        date: "2024-03-01",
-        crunches: 40,
-        pushups: 10,
-        squats: 45,
-        plank: 75,
-        jumpingJacks: 65,
-        rowing: "20kg x 10",
-        comments: "Καλή αντοχή"
-      },
-      {
-        date: "2024-05-15",
-        crunches: 48,
-        pushups: 12,
-        squats: 52,
-        plank: 85,
-        jumpingJacks: 72,
-        rowing: "25kg x 10",
-        comments: "Σταδιακή βελτίωση"
-      }
-    ]
-  },
-  {
-    id: "5",
-    clientName: "Νίκος Αλεξάνδρου",
-    tests: [
-      {
-        date: "2024-02-20",
-        crunches: 30,
-        pushups: 15,
-        squats: 35,
-        plank: 65,
-        jumpingJacks: 45,
-        rowing: "45kg x 10",
-        comments: "Μέτρια αντοχή"
-      },
-      {
-        date: "2024-05-10",
-        crunches: 28,
-        pushups: 14,
-        squats: 33,
-        plank: 60,
-        jumpingJacks: 42,
-        rowing: "42kg x 10",
-        comments: "Μικρή υποχώρηση"
-      }
-    ]
-  }
-];
-
-// Mock data για strength log
-const strengthLogs = [
-  {
-    id: "1",
-    clientName: "Γιάννης Παπαδόπουλος",
-    exercises: [
-      {
-        date: "2024-01-15",
-        squat: "60kg x 8",
-        benchPress: "50kg x 6",
-        deadlift: "80kg x 5",
-        shoulderPress: "30kg x 8",
-        pullups: 5,
-        rowing: "45kg x 10",
-        comments: "Καλή τεχνική, χρειάζεται βελτίωση στη δύναμη"
-      },
-      {
-        date: "2024-05-24",
-        squat: "85kg x 10",
-        benchPress: "70kg x 10",
-        deadlift: "110kg x 8",
-        shoulderPress: "45kg x 10",
-        pullups: 15,
-        rowing: "65kg x 10",
-        comments: "Εντυπωσιακή πρόοδος σε όλες τις ασκήσεις"
-      }
-    ]
-  },
-  {
-    id: "2",
-    clientName: "Μαρία Κωνσταντίνου",
-    exercises: [
-      {
-        date: "2024-02-10",
-        squat: "30kg x 8",
-        benchPress: "20kg x 8",
-        deadlift: "40kg x 6",
-        shoulderPress: "15kg x 8",
-        pullups: 2,
-        rowing: "25kg x 10",
-        comments: "Αρχάρια επίπεδο"
-      },
-      {
-        date: "2024-05-20",
-        squat: "45kg x 10",
-        benchPress: "30kg x 10",
-        deadlift: "55kg x 8",
-        shoulderPress: "20kg x 10",
-        pullups: 6,
-        rowing: "35kg x 10",
-        comments: "Καλή πρόοδος στη δύναμη"
-      }
-    ]
-  },
-  {
-    id: "3",
-    clientName: "Κώστας Δημητρίου",
-    exercises: [
-      {
-        date: "2024-01-08",
-        squat: "40kg x 5",
-        benchPress: "35kg x 4",
-        deadlift: "50kg x 3",
-        shoulderPress: "20kg x 5",
-        pullups: 0,
-        rowing: "30kg x 8",
-        comments: "Αδύναμος, χρειάζεται εργασία"
-      },
-      {
-        date: "2024-05-18",
-        squat: "75kg x 10",
-        benchPress: "60kg x 8",
-        deadlift: "95kg x 8",
-        shoulderPress: "35kg x 10",
-        pullups: 8,
-        rowing: "55kg x 10",
-        comments: "Απίστευτη βελτίωση!"
-      }
-    ]
-  },
-  {
-    id: "4",
-    clientName: "Ελένη Παπαδάκη",
-    exercises: [
-      {
-        date: "2024-03-01",
-        squat: "35kg x 10",
-        benchPress: "25kg x 8",
-        deadlift: "45kg x 8",
-        shoulderPress: "12kg x 10",
-        pullups: 3,
-        rowing: "20kg x 10",
-        comments: "Καλή αρχική δύναμη"
-      },
-      {
-        date: "2024-05-15",
-        squat: "42kg x 10",
-        benchPress: "28kg x 10",
-        deadlift: "52kg x 10",
-        shoulderPress: "15kg x 10",
-        pullups: 5,
-        rowing: "25kg x 10",
-        comments: "Σταδιακή βελτίωση"
-      }
-    ]
-  },
-  {
-    id: "5",
-    clientName: "Νίκος Αλεξάνδρου",
-    exercises: [
-      {
-        date: "2024-02-20",
-        squat: "65kg x 8",
-        benchPress: "55kg x 6",
-        deadlift: "75kg x 6",
-        shoulderPress: "35kg x 8",
-        pullups: 8,
-        rowing: "50kg x 10",
-        comments: "Καλό επίπεδο δύναμης"
-      },
-      {
-        date: "2024-05-10",
-        squat: "68kg x 8",
-        benchPress: "52kg x 8",
-        deadlift: "72kg x 8",
-        shoulderPress: "33kg x 8",
-        pullups: 7,
-        rowing: "48kg x 10",
-        comments: "Στασιμότητα στην πρόοδο"
-      }
-    ]
-  }
-];
+interface ClientWithStats {
+  id: string;
+  name: string;
+  avatar: string | null;
+  initials: string;
+  lastAssessmentDate?: string;
+  totalAssessments: number;
+  latestBMI?: number;
+  trend: 'improving' | 'stable' | 'declining';
+}
 
 export function AssessmentPage() {
+  const { toast } = useToast();
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [selectedClient, setSelectedClient] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [assessmentType, setAssessmentType] = useState("body");
-  const [viewingClientData, setViewingClientData] = useState("1"); // Προεπιλογή πρώτος πελάτης
+  const [viewingClientData, setViewingClientData] = useState<string | null>(null);
+  const [currentAssessmentDate, setCurrentAssessmentDate] = useState<string>(
+    new Date().toISOString().split('T')[0]
+  );
   
-  const [bodyFormData, setBodyFormData] = useState({
-    weight: "",
-    height: "",
-    waist: "",
-    hips: "",
-    chest: "",
-    rightArm: "",
-    rightThigh: "",
-    bodyFat: "",
+  // Client data
+  const [users, setUsers] = useState<UserType[]>([]);
+  const [clientsWithAssessments, setClientsWithAssessments] = useState<ClientWithStats[]>([]);
+  const [assessments, setAssessments] = useState<Assessment[]>([]);
+  
+  const [bodyFormData, setBodyFormData] = useState<Partial<BodyMeasurement>>({
+    weight: 0,
+    height: 0,
+    waist: 0,
+    hips: 0,
+    chest: 0,
+    rightArm: 0,
+    rightThigh: 0,
+    bodyFat: 0,
     comments: ""
   });
 
-  const [enduranceFormData, setEnduranceFormData] = useState({
-    crunches: "",
-    pushups: "",
-    squats: "",
-    plank: "",
-    jumpingJacks: "",
+  const [enduranceFormData, setEnduranceFormData] = useState<Partial<EnduranceTest>>({
+    crunches: 0,
+    pushups: 0,
+    squats: 0,
+    plank: 0,
+    jumpingJacks: 0,
     rowing: "",
     comments: ""
   });
 
-  const [strengthFormData, setStrengthFormData] = useState({
+  const [strengthFormData, setStrengthFormData] = useState<Partial<StrengthLog>>({
     squat: "",
     benchPress: "",
     deadlift: "",
@@ -521,70 +122,89 @@ export function AssessmentPage() {
     comments: ""
   });
 
-  // Λίστα όλων των πελατών με μετρήσεις
-  const clientsWithAssessments = [
-    {
-      id: "1",
-      name: "Γιάννης Παπαδόπουλος",
-      avatar: "/avatars/giannis.jpg",
-      initials: "ΓΠ",
-      lastAssessment: "2024-05-24",
-      totalAssessments: 8,
-      latestBMI: "24.7",
-      trend: "improving"
-    },
-    {
-      id: "2", 
-      name: "Μαρία Κωνσταντίνου",
-      avatar: null,
-      initials: "ΜΚ",
-      lastAssessment: "2024-05-20",
-      totalAssessments: 5,
-      latestBMI: "22.1",
-      trend: "stable"
-    },
-    {
-      id: "3",
-      name: "Κώστας Δημητρίου", 
-      avatar: null,
-      initials: "ΚΔ",
-      lastAssessment: "2024-05-18",
-      totalAssessments: 12,
-      latestBMI: "26.8",
-      trend: "improving"
-    },
-    {
-      id: "4",
-      name: "Ελένη Παπαδάκη",
-      avatar: null,
-      initials: "ΕΠ", 
-      lastAssessment: "2024-05-15",
-      totalAssessments: 3,
-      latestBMI: "21.5",
-      trend: "stable"
-    },
-    {
-      id: "5",
-      name: "Νίκος Αλεξάνδρου",
-      avatar: null,
-      initials: "ΝΑ",
-      lastAssessment: "2024-05-10",
-      totalAssessments: 6,
-      latestBMI: "25.2",
-      trend: "declining"
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const loadData = async () => {
+    try {
+      setLoading(true);
+      
+      // Load all users
+      const usersData = await usersApi.getAll();
+      setUsers(usersData);
+      
+      // Load all assessments
+      const assessmentsData = await assessmentsApi.getAll();
+      setAssessments(assessmentsData);
+      
+      // Build clients with assessment stats
+      // TODO: Consider implementing a batch endpoint (e.g., /api/v1/assessments/stats/batch)
+      // to fetch all user stats in a single request instead of N+1 queries
+      const clientStats: ClientWithStats[] = await Promise.all(
+        usersData.map(async (user) => {
+          try {
+            const stats = await assessmentsApi.getStats(user.id);
+            return {
+              id: user.id,
+              name: user.name,
+              avatar: user.avatar,
+              initials: user.name.split(' ').map(n => n[0]).join(''),
+              lastAssessmentDate: stats.lastAssessmentDate,
+              totalAssessments: stats.totalAssessments,
+              latestBMI: stats.latestBMI,
+              trend: stats.trend,
+            };
+          } catch {
+            // If stats fail, return basic info
+            return {
+              id: user.id,
+              name: user.name,
+              avatar: user.avatar,
+              initials: user.name.split(' ').map(n => n[0]).join(''),
+              totalAssessments: 0,
+              trend: 'stable' as const,
+            };
+          }
+        })
+      );
+      
+      setClientsWithAssessments(clientStats.filter(c => c.totalAssessments > 0));
+      
+      // Set default viewing client if available
+      if (clientStats.length > 0 && !viewingClientData) {
+        setViewingClientData(clientStats[0].id);
+      }
+    } catch (error) {
+      console.error('Failed to load assessment data:', error);
+      toast({
+        title: "Σφάλμα",
+        description: "Αποτυχία φόρτωσης δεδομένων αξιολόγησης.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
     }
-  ];
+  };
 
   const getCurrentClientData = () => {
-    const clientId = viewingClientData;
-    const bodyData = bodyMeasurements.find(b => b.id === clientId);
-    const enduranceData = enduranceTests.find(e => e.id === clientId);
-    const strengthData = strengthLogs.find(s => s.id === clientId);
+    if (!viewingClientData) return { body: [], endurance: [], strength: [] };
+    
+    const clientAssessments = assessments.filter(a => a.clientId === viewingClientData);
     
     return {
-      body: bodyData?.measurements || [],
-      endurance: enduranceData?.tests || [],
-      strength: strengthData?.exercises || []
+      body: clientAssessments
+        .filter(a => a.type === 'body')
+        .map(a => ({ ...a.data as BodyMeasurement, date: a.date }))
+        .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()),
+      endurance: clientAssessments
+        .filter(a => a.type === 'endurance')
+        .map(a => ({ ...a.data as EnduranceTest, date: a.date }))
+        .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()),
+      strength: clientAssessments
+        .filter(a => a.type === 'strength')
+        .map(a => ({ ...a.data as StrengthLog, date: a.date }))
+        .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()),
     };
   };
 
@@ -622,11 +242,142 @@ export function AssessmentPage() {
       <TrendingDown className="h-4 w-4 text-red-600" />;
   };
 
-  const handleSaveAssessment = () => {
-    // Εδώ θα προστεθεί η λογική αποθήκευσης
-    console.log("Saving assessment:", { assessmentType, bodyFormData, enduranceFormData, strengthFormData });
-    setIsDialogOpen(false);
+  const resetFormData = () => {
+    setBodyFormData({
+      weight: 0,
+      height: 0,
+      waist: 0,
+      hips: 0,
+      chest: 0,
+      rightArm: 0,
+      rightThigh: 0,
+      bodyFat: 0,
+      comments: ""
+    });
+    setEnduranceFormData({
+      crunches: 0,
+      pushups: 0,
+      squats: 0,
+      plank: 0,
+      jumpingJacks: 0,
+      rowing: "",
+      comments: ""
+    });
+    setStrengthFormData({
+      squat: "",
+      benchPress: "",
+      deadlift: "",
+      shoulderPress: "",
+      pullups: "",
+      rowing: "",
+      comments: ""
+    });
+    setCurrentAssessmentDate(new Date().toISOString().split('T')[0]);
   };
+
+  const handleSaveAssessment = async () => {
+    if (!selectedClient) {
+      toast({
+        title: "Σφάλμα",
+        description: "Παρακαλώ επιλέξτε πελάτη.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      setSaving(true);
+      
+      let result;
+      switch (assessmentType) {
+        case "body":
+          const bodyData: BodyMeasurement = {
+            clientId: selectedClient,
+            date: currentAssessmentDate,
+            weight: Number(bodyFormData.weight) || 0,
+            height: Number(bodyFormData.height) || 0,
+            waist: Number(bodyFormData.waist) || 0,
+            hips: Number(bodyFormData.hips) || 0,
+            chest: Number(bodyFormData.chest) || 0,
+            rightArm: Number(bodyFormData.rightArm) || 0,
+            rightThigh: Number(bodyFormData.rightThigh) || 0,
+            bodyFat: Number(bodyFormData.bodyFat) || 0,
+            bmi: calculateBMI(Number(bodyFormData.weight) || 0, Number(bodyFormData.height) || 0),
+            comments: bodyFormData.comments || ""
+          };
+          result = await assessmentsApi.createBodyMeasurement(bodyData);
+          break;
+          
+        case "endurance":
+          const enduranceData: EnduranceTest = {
+            clientId: selectedClient,
+            date: currentAssessmentDate,
+            crunches: Number(enduranceFormData.crunches) || 0,
+            pushups: Number(enduranceFormData.pushups) || 0,
+            squats: Number(enduranceFormData.squats) || 0,
+            plank: Number(enduranceFormData.plank) || 0,
+            jumpingJacks: Number(enduranceFormData.jumpingJacks) || 0,
+            rowing: enduranceFormData.rowing || "",
+            comments: enduranceFormData.comments || ""
+          };
+          result = await assessmentsApi.createEnduranceTest(enduranceData);
+          break;
+          
+        case "strength":
+          const strengthData: StrengthLog = {
+            clientId: selectedClient,
+            date: currentAssessmentDate,
+            squat: strengthFormData.squat || "",
+            benchPress: strengthFormData.benchPress || "",
+            deadlift: strengthFormData.deadlift || "",
+            shoulderPress: strengthFormData.shoulderPress || "",
+            pullups: strengthFormData.pullups || "",
+            rowing: strengthFormData.rowing || "",
+            comments: strengthFormData.comments || ""
+          };
+          result = await assessmentsApi.createStrengthLog(strengthData);
+          break;
+      }
+
+      toast({
+        title: "Επιτυχής Αποθήκευση",
+        description: "Η αξιολόγηση αποθηκεύτηκε επιτυχώς.",
+      });
+      
+      setIsDialogOpen(false);
+      resetFormData();
+      setSelectedClient("");
+      await loadData();
+    } catch (error) {
+      console.error('Failed to save assessment:', error);
+      toast({
+        title: "Σφάλμα",
+        description: "Αποτυχία αποθήκευσης αξιολόγησης.",
+        variant: "destructive",
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <SidebarProvider>
+        <div className="min-h-screen flex w-full bg-background">
+          <AdminSidebar />
+          <div className="flex-1 flex flex-col">
+            <AdminHeader />
+            <main className="flex-1 p-6 flex items-center justify-center">
+              <div className="flex flex-col items-center gap-4">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                <p className="text-muted-foreground">Φόρτωση αξιολογήσεων...</p>
+              </div>
+            </main>
+          </div>
+        </div>
+      </SidebarProvider>
+    );
+  }
 
   return (
     <SidebarProvider>
@@ -667,9 +418,11 @@ export function AssessmentPage() {
                             <SelectValue placeholder="Επιλέξτε πελάτη" />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="1">Γιάννης Παπαδόπουλος</SelectItem>
-                            <SelectItem value="2">Μαρία Κωνσταντίνου</SelectItem>
-                            <SelectItem value="3">Κώστας Δημητρίου</SelectItem>
+                            {users.map((user) => (
+                              <SelectItem key={user.id} value={user.id}>
+                                {user.name}
+                              </SelectItem>
+                            ))}
                           </SelectContent>
                         </Select>
                       </div>
@@ -688,6 +441,15 @@ export function AssessmentPage() {
                       </div>
                     </div>
 
+                    <div>
+                      <Label>Ημερομηνία Αξιολόγησης</Label>
+                      <Input
+                        type="date"
+                        value={currentAssessmentDate}
+                        onChange={(e) => setCurrentAssessmentDate(e.target.value)}
+                      />
+                    </div>
+
                     {assessmentType === "body" && (
                       <div className="grid gap-4">
                         <h3 className="text-lg font-semibold">Σωματομετρήσεις</h3>
@@ -696,8 +458,9 @@ export function AssessmentPage() {
                             <Label>Βάρος (kg)</Label>
                             <Input 
                               type="number" 
+                              step="0.1"
                               value={bodyFormData.weight}
-                              onChange={(e) => setBodyFormData({...bodyFormData, weight: e.target.value})}
+                              onChange={(e) => setBodyFormData({...bodyFormData, weight: parseFloat(e.target.value)})}
                             />
                           </div>
                           <div>
@@ -705,7 +468,7 @@ export function AssessmentPage() {
                             <Input 
                               type="number"
                               value={bodyFormData.height}
-                              onChange={(e) => setBodyFormData({...bodyFormData, height: e.target.value})}
+                              onChange={(e) => setBodyFormData({...bodyFormData, height: parseFloat(e.target.value)})}
                             />
                           </div>
                           <div>
@@ -713,7 +476,7 @@ export function AssessmentPage() {
                             <Input 
                               type="number"
                               value={bodyFormData.waist}
-                              onChange={(e) => setBodyFormData({...bodyFormData, waist: e.target.value})}
+                              onChange={(e) => setBodyFormData({...bodyFormData, waist: parseFloat(e.target.value)})}
                             />
                           </div>
                           <div>
@@ -721,7 +484,7 @@ export function AssessmentPage() {
                             <Input 
                               type="number"
                               value={bodyFormData.hips}
-                              onChange={(e) => setBodyFormData({...bodyFormData, hips: e.target.value})}
+                              onChange={(e) => setBodyFormData({...bodyFormData, hips: parseFloat(e.target.value)})}
                             />
                           </div>
                         </div>
@@ -731,7 +494,7 @@ export function AssessmentPage() {
                             <Input 
                               type="number"
                               value={bodyFormData.chest}
-                              onChange={(e) => setBodyFormData({...bodyFormData, chest: e.target.value})}
+                              onChange={(e) => setBodyFormData({...bodyFormData, chest: parseFloat(e.target.value)})}
                             />
                           </div>
                           <div>
@@ -739,7 +502,7 @@ export function AssessmentPage() {
                             <Input 
                               type="number"
                               value={bodyFormData.rightArm}
-                              onChange={(e) => setBodyFormData({...bodyFormData, rightArm: e.target.value})}
+                              onChange={(e) => setBodyFormData({...bodyFormData, rightArm: parseFloat(e.target.value)})}
                             />
                           </div>
                           <div>
@@ -747,7 +510,7 @@ export function AssessmentPage() {
                             <Input 
                               type="number"
                               value={bodyFormData.rightThigh}
-                              onChange={(e) => setBodyFormData({...bodyFormData, rightThigh: e.target.value})}
+                              onChange={(e) => setBodyFormData({...bodyFormData, rightThigh: parseFloat(e.target.value)})}
                             />
                           </div>
                           <div>
@@ -756,7 +519,7 @@ export function AssessmentPage() {
                               type="number"
                               step="0.1"
                               value={bodyFormData.bodyFat}
-                              onChange={(e) => setBodyFormData({...bodyFormData, bodyFat: e.target.value})}
+                              onChange={(e) => setBodyFormData({...bodyFormData, bodyFat: parseFloat(e.target.value)})}
                             />
                           </div>
                         </div>
@@ -780,7 +543,7 @@ export function AssessmentPage() {
                             <Input 
                               type="number"
                               value={enduranceFormData.crunches}
-                              onChange={(e) => setEnduranceFormData({...enduranceFormData, crunches: e.target.value})}
+                              onChange={(e) => setEnduranceFormData({...enduranceFormData, crunches: parseInt(e.target.value)})}
                               placeholder="π.χ. 35"
                             />
                           </div>
@@ -789,7 +552,7 @@ export function AssessmentPage() {
                             <Input 
                               type="number"
                               value={enduranceFormData.pushups}
-                              onChange={(e) => setEnduranceFormData({...enduranceFormData, pushups: e.target.value})}
+                              onChange={(e) => setEnduranceFormData({...enduranceFormData, pushups: parseInt(e.target.value)})}
                               placeholder="π.χ. 18"
                             />
                           </div>
@@ -798,7 +561,7 @@ export function AssessmentPage() {
                             <Input 
                               type="number"
                               value={enduranceFormData.squats}
-                              onChange={(e) => setEnduranceFormData({...enduranceFormData, squats: e.target.value})}
+                              onChange={(e) => setEnduranceFormData({...enduranceFormData, squats: parseInt(e.target.value)})}
                               placeholder="π.χ. 40"
                             />
                           </div>
@@ -809,7 +572,7 @@ export function AssessmentPage() {
                             <Input 
                               type="number"
                               value={enduranceFormData.plank}
-                              onChange={(e) => setEnduranceFormData({...enduranceFormData, plank: e.target.value})}
+                              onChange={(e) => setEnduranceFormData({...enduranceFormData, plank: parseInt(e.target.value)})}
                               placeholder="π.χ. 70"
                             />
                           </div>
@@ -818,7 +581,7 @@ export function AssessmentPage() {
                             <Input 
                               type="number"
                               value={enduranceFormData.jumpingJacks}
-                              onChange={(e) => setEnduranceFormData({...enduranceFormData, jumpingJacks: e.target.value})}
+                              onChange={(e) => setEnduranceFormData({...enduranceFormData, jumpingJacks: parseInt(e.target.value)})}
                               placeholder="π.χ. 55"
                             />
                           </div>
@@ -883,7 +646,6 @@ export function AssessmentPage() {
                           <div>
                             <Label>Pull-ups (χωρίς βάρος)</Label>
                             <Input 
-                              type="number"
                               value={strengthFormData.pullups}
                               onChange={(e) => setStrengthFormData({...strengthFormData, pullups: e.target.value})}
                               placeholder="π.χ. 10"
@@ -914,8 +676,12 @@ export function AssessmentPage() {
                     <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
                       Ακύρωση
                     </Button>
-                    <Button onClick={handleSaveAssessment}>
-                      <Save className="h-4 w-4 mr-2" />
+                    <Button onClick={handleSaveAssessment} disabled={saving}>
+                      {saving ? (
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      ) : (
+                        <Save className="h-4 w-4 mr-2" />
+                      )}
                       Αποθήκευση
                     </Button>
                   </div>
@@ -968,7 +734,7 @@ export function AssessmentPage() {
                         <div className="flex-1 min-w-0">
                           <h3 className="font-medium text-foreground truncate">{client.name}</h3>
                           <p className="text-sm text-muted-foreground">
-                            Τελευταία: {client.lastAssessment}
+                            Τελευταία: {client.lastAssessmentDate ? new Date(client.lastAssessmentDate).toLocaleDateString('el-GR') : 'Καμία'}
                           </p>
                         </div>
                         {getTrendBadge(client.trend)}
@@ -980,7 +746,7 @@ export function AssessmentPage() {
                           <div className="text-muted-foreground">Μετρήσεις</div>
                         </div>
                         <div className="text-center">
-                          <div className="font-bold text-lg text-primary">{client.latestBMI}</div>
+                          <div className="font-bold text-lg text-primary">{client.latestBMI || '-'}</div>
                           <div className="text-muted-foreground">BMI</div>
                         </div>
                         <div className="text-center">
@@ -1015,8 +781,8 @@ export function AssessmentPage() {
             </Card>
 
             {/* Υπάρχουσες καρτέλες με δεδομένα επιλεγμένου πελάτη */}
-            <div className="mb-4">
-              {viewingClientData && (
+            {viewingClientData && (
+              <div className="mb-4">
                 <div className="p-4 bg-primary/10 rounded-lg border border-primary/20">
                   <h2 className="text-lg font-semibold text-primary mb-2">
                     Προβολή δεδομένων για: {clientsWithAssessments.find(c => c.id === viewingClientData)?.name}
@@ -1025,8 +791,8 @@ export function AssessmentPage() {
                     Τα παρακάτω στατιστικά και πίνακες εμφανίζουν τα δεδομένα του επιλεγμένου πελάτη.
                   </p>
                 </div>
-              )}
-            </div>
+              </div>
+            )}
 
             {/* Στατιστικά Cards */}
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
@@ -1036,7 +802,7 @@ export function AssessmentPage() {
                   <Activity className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">24</div>
+                  <div className="text-2xl font-bold">{clientsWithAssessments.length}</div>
                   <p className="text-xs text-muted-foreground">
                     πελάτες με μετρήσεις
                   </p>
@@ -1048,7 +814,13 @@ export function AssessmentPage() {
                   <Target className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">18</div>
+                  <div className="text-2xl font-bold">
+                    {assessments.filter(a => {
+                      const date = new Date(a.date);
+                      const now = new Date();
+                      return date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
+                    }).length}
+                  </div>
                   <p className="text-xs text-muted-foreground">
                     νέες αξιολογήσεις
                   </p>
@@ -1060,21 +832,23 @@ export function AssessmentPage() {
                   <TrendingUp className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">+12%</div>
+                  <div className="text-2xl font-bold">
+                    +{clientsWithAssessments.filter(c => c.trend === 'improving').length}
+                  </div>
                   <p className="text-xs text-muted-foreground">
-                    σε strength metrics
+                    πελάτες με βελτίωση
                   </p>
                 </CardContent>
               </Card>
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Φωτογραφίες</CardTitle>
-                  <Camera className="h-4 w-4 text-muted-foreground" />
+                  <CardTitle className="text-sm font-medium">Συνολικές Μετρήσεις</CardTitle>
+                  <Calculator className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">156</div>
+                  <div className="text-2xl font-bold">{assessments.length}</div>
                   <p className="text-xs text-muted-foreground">
-                    progress photos αποθηκευμένες
+                    καταγεγραμμένες αξιολογήσεις
                   </p>
                 </CardContent>
               </Card>
@@ -1122,7 +896,9 @@ export function AssessmentPage() {
                       const waistDiff = calculateDifference(latest.waist, previous.waist);
                       const chestDiff = calculateDifference(latest.chest, previous.chest);
                       const bodyFatDiff = calculateDifference(latest.bodyFat, previous.bodyFat);
-                      const bmiDiff = calculateDifference(latest.bmi, previous.bmi);
+                      const latestBMI = calculateBMI(latest.weight, latest.height);
+                      const previousBMI = calculateBMI(previous.weight, previous.height);
+                      const bmiDiff = calculateDifference(parseFloat(latestBMI), parseFloat(previousBMI));
 
                       return (
                         <Table>
@@ -1202,15 +978,15 @@ export function AssessmentPage() {
                                 <Calculator className="h-4 w-4" />
                                 BMI
                               </TableCell>
-                              <TableCell>{previous.bmi}</TableCell>
-                              <TableCell>{latest.bmi}</TableCell>
+                              <TableCell>{previousBMI}</TableCell>
+                              <TableCell>{latestBMI}</TableCell>
                               <TableCell className="flex items-center gap-2">
                                 {getTrendIcon(parseFloat(bmiDiff.diff), false)}
                                 <span className={`font-bold ${parseFloat(bmiDiff.diff) < 0 ? 'text-green-600' : 'text-red-600'}`}>
                                   {bmiDiff.diff} ({bmiDiff.percentage}%)
                                 </span>
                               </TableCell>
-                              <TableCell>{latest.bmi < 25 ? 'Υγιές εύρος' : latest.bmi < 30 ? 'Υπέρβαρος' : 'Παχύσαρκος'}</TableCell>
+                              <TableCell>{parseFloat(latestBMI) < 25 ? 'Υγιές εύρος' : parseFloat(latestBMI) < 30 ? 'Υπέρβαρος' : 'Παχύσαρκος'}</TableCell>
                             </TableRow>
                           </TableBody>
                         </Table>
@@ -1437,10 +1213,8 @@ export function AssessmentPage() {
                               <TableCell>{previous.pullups} επαναλ.</TableCell>
                               <TableCell>{latest.pullups} επαναλ.</TableCell>
                               <TableCell className="flex items-center gap-2">
-                                {getTrendIcon(latest.pullups - previous.pullups)}
-                                <span className={`font-bold ${latest.pullups > previous.pullups ? 'text-green-600' : 'text-red-600'}`}>
-                                  {latest.pullups > previous.pullups ? '+' : ''}{latest.pullups - previous.pullups} ({(((latest.pullups - previous.pullups) / previous.pullups) * 100).toFixed(0)}%)
-                                </span>
+                                {getTrendIcon(1)}
+                                <span className="text-green-600 font-bold">Βελτίωση</span>
                               </TableCell>
                               <TableCell>Ελεγχόμενη κίνηση</TableCell>
                             </TableRow>
@@ -1467,4 +1241,4 @@ export function AssessmentPage() {
       </div>
     </SidebarProvider>
   );
-} 
+}

@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Bell, Search, User, LogOut } from "lucide-react";
+import { useState, useRef, useEffect } from "react";
+import { Bell, Search, User, LogOut, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -14,13 +14,24 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { OwnerNotifications } from "./OwnerNotifications";
 import { AdminSettingsModal } from "./AdminSettingsModal";
+import { GlobalSearchResults } from "./GlobalSearchResults";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/components/ui/use-toast";
+import { useGlobalSearch } from "@/hooks/useGlobalSearch";
+import { useClickOutside } from "@/hooks/useClickOutside";
 
 export function AdminHeader() {
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [showSearchResults, setShowSearchResults] = useState(false);
   const { user, logout } = useAuth();
   const { toast } = useToast();
+  const { searchState, handleSearch, clearSearch, navigateToResult } = useGlobalSearch();
+  
+  // Use custom hook for handling outside clicks and ESC key
+  const searchRef = useClickOutside<HTMLDivElement>(showSearchResults, () => {
+    setShowSearchResults(false);
+    clearSearch();
+  });
 
   const handleLogout = async () => {
     try {
@@ -34,6 +45,21 @@ export function AdminHeader() {
     }
   };
 
+  const handleSearchInput = (value: string) => {
+    handleSearch(value);
+    setShowSearchResults(value.trim().length > 0);
+  };
+
+  const handleSelectResult = (result: any) => {
+    navigateToResult(result);
+    setShowSearchResults(false);
+  };
+
+  const handleClearSearch = () => {
+    clearSearch();
+    setShowSearchResults(false);
+  };
+
   return (
     <header
       className="flex h-16 items-center justify-between border-b border-border px-6 bg-background"
@@ -43,7 +69,7 @@ export function AdminHeader() {
         className="flex items-center gap-4 flex-1 max-w-lg"
         data-oid=":cn1.a_"
       >
-        <div className="relative flex-1" data-oid="44qc:66">
+        <div className="relative flex-1" ref={searchRef} data-oid="44qc:66">
           <Search
             className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
             data-oid="lea7yyc"
@@ -52,9 +78,31 @@ export function AdminHeader() {
           <Input
             type="search"
             placeholder="Αναζήτηση πελατών, μαθημάτων, κρατήσεων..."
-            className="pl-10 bg-card border-border focus:border-primary focus:ring-primary text-foreground"
+            className="pl-10 pr-10 bg-card border-border focus:border-primary focus:ring-primary text-foreground"
+            value={searchState.query}
+            onChange={(e) => handleSearchInput(e.target.value)}
+            onFocus={() => searchState.query && setShowSearchResults(true)}
             data-oid="pw2i8zr"
           />
+
+          {searchState.query && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleClearSearch}
+              className="absolute right-2 top-1/2 -translate-y-1/2 h-6 w-6 p-0"
+            >
+              <X className="h-3 w-3" />
+            </Button>
+          )}
+
+          {showSearchResults && (
+            <GlobalSearchResults
+              searchState={searchState}
+              onSelectResult={handleSelectResult}
+              onClose={() => setShowSearchResults(false)}
+            />
+          )}
         </div>
       </div>
 

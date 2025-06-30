@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { AdminSidebar } from "@/components/AdminSidebar";
 import { AdminHeader } from "@/components/AdminHeader";
@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { useToast } from "@/components/ui/use-toast";
+import { api } from "@/config/api";
 import {
   Table,
   TableBody,
@@ -45,91 +47,37 @@ import {
   Trash2,
   Eye,
   Archive,
+  Loader2,
 } from "lucide-react";
 
-// Mock data για προϊόντα
-const mockProducts = [
-  {
-    id: "1",
-    name: "Premium Protein Powder",
-    category: "supplements",
-    price: 59.99,
-    cost: 35.00,
-    stock: 25,
-    minStock: 10,
-    status: "active",
-    sales: 156,
-    revenue: 9359.44,
-    description: "High-quality whey protein for optimal muscle recovery",
-    image: "https://images.unsplash.com/photo-1582562124811-c09040d0a901",
-    supplier: "SupplementCorp",
-    sku: "SPP001",
-  },
-  {
-    id: "2",
-    name: "Στολή EMS Training",
-    category: "ems_gear",
-    price: 89.99,
-    cost: 45.00,
-    stock: 8,
-    minStock: 5,
-    status: "active",
-    sales: 23,
-    revenue: 2069.77,
-    description: "Professional EMS training vest",
-    image: "https://images.unsplash.com/photo-1618160702438-9b02ab6515c9",
-    supplier: "EMSGear Pro",
-    sku: "EMS001",
-  },
-  {
-    id: "3",
-    name: "Κάλυμμα Pilates Mat",
-    category: "pilates_accessories",
-    price: 24.99,
-    cost: 12.00,
-    stock: 3,
-    minStock: 15,
-    status: "low_stock",
-    sales: 89,
-    revenue: 2224.11,
-    description: "Antibacterial pilates mat cover",
-    image: "https://images.unsplash.com/photo-1535268647677-300dbf3d78d1",
-    supplier: "PilatesPro",
-    sku: "PIL001",
-  },
-  {
-    id: "4",
-    name: "Cambridge Meal Replacement",
-    category: "cambridge",
-    price: 34.99,
-    cost: 18.00,
-    stock: 45,
-    minStock: 20,
-    status: "active",
-    sales: 78,
-    revenue: 2729.22,
-    description: "Complete meal replacement shake",
-    image: "https://images.unsplash.com/photo-1465146344425-f00d5f5c8f07",
-    supplier: "Cambridge Weight Plan",
-    sku: "CWP001",
-  },
-  {
-    id: "5",
-    name: "Sweat24 Towel",
-    category: "accessories",
-    price: 19.99,
-    cost: 8.00,
-    stock: 0,
-    minStock: 25,
-    status: "out_of_stock",
-    sales: 203,
-    revenue: 4059.97,
-    description: "High-quality gym towel with Sweat24 branding",
-    image: "https://images.unsplash.com/photo-1574680096145-d05b474e2155",
-    supplier: "Local Supplier",
-    sku: "SW24001",
-  },
-];
+interface Product {
+  id: string;
+  name: string;
+  category: string;
+  price: number;
+  cost: number;
+  stock: number;
+  minStock: number;
+  status: string;
+  sales: number;
+  revenue: number;
+  description: string;
+  image?: string | null;
+  supplier: string;
+  sku: string;
+}
+
+interface Sale {
+  id: string;
+  productName: string;
+  quantity: number;
+  price: number;
+  total: number;
+  paymentMethod: string;
+  customerName: string;
+  date: string;
+  time: string;
+}
 
 const categories = [
   { value: "supplements", label: "Συμπληρώματα", icon: Package },
@@ -145,46 +93,11 @@ const paymentMethods = [
   { value: "cash", label: "Μετρητά", color: "bg-yellow-100 text-yellow-800" },
 ];
 
-// Mock sales data
-const salesData = [
-  {
-    id: "1",
-    productName: "Premium Protein Powder",
-    quantity: 2,
-    price: 59.99,
-    total: 119.98,
-    paymentMethod: "pos",
-    customerName: "Γιάννης Παπαδόπουλος",
-    date: "2024-05-24",
-    time: "14:30",
-  },
-  {
-    id: "2",
-    productName: "Στολή EMS Training",
-    quantity: 1,
-    price: 89.99,
-    total: 89.99,
-    paymentMethod: "iris",
-    customerName: "Μαρία Κωνσταντίνου",
-    date: "2024-05-24",
-    time: "10:15",
-  },
-  {
-    id: "3",
-    productName: "Cambridge Meal Replacement",
-    quantity: 3,
-    price: 34.99,
-    total: 104.97,
-    paymentMethod: "cash",
-    customerName: "Κώστας Δημητρίου",
-    date: "2024-05-23",
-    time: "16:45",
-  },
-];
-
 export function StorePage() {
-  const [products, setProducts] = useState(mockProducts);
-  const [sales, setSales] = useState(salesData);
+  const { toast } = useToast();
+  const [products, setProducts] = useState<Product[]>([]);
+  const [sales, setSales] = useState<Sale[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -200,6 +113,165 @@ export function StorePage() {
     supplier: "",
     sku: "",
   });
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const loadData = async () => {
+    try {
+      setLoading(true);
+      
+      // Try to fetch from API
+      const [productsResponse, salesResponse] = await Promise.all([
+        api.get('/products').catch(() => null),
+        api.get('/sales').catch(() => null)
+      ]);
+
+      if (productsResponse && productsResponse.data) {
+        setProducts(productsResponse.data);
+      } else {
+        // Use fallback data if API is not available
+        setProducts(getFallbackProducts());
+      }
+
+      if (salesResponse && salesResponse.data) {
+        setSales(salesResponse.data);
+      } else {
+        // Use fallback data if API is not available
+        setSales(getFallbackSales());
+      }
+    } catch (error) {
+      // If API fails, use fallback data
+      setProducts(getFallbackProducts());
+      setSales(getFallbackSales());
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getFallbackProducts = (): Product[] => {
+    return [
+      {
+        id: "1",
+        name: "Premium Protein Powder",
+        category: "supplements",
+        price: 59.99,
+        cost: 35.00,
+        stock: 25,
+        minStock: 10,
+        status: "active",
+        sales: 156,
+        revenue: 9359.44,
+        description: "High-quality whey protein for optimal muscle recovery",
+        image: "https://images.unsplash.com/photo-1582562124811-c09040d0a901",
+        supplier: "SupplementCorp",
+        sku: "SPP001",
+      },
+      {
+        id: "2",
+        name: "Στολή EMS Training",
+        category: "ems_gear",
+        price: 89.99,
+        cost: 45.00,
+        stock: 8,
+        minStock: 5,
+        status: "active",
+        sales: 23,
+        revenue: 2069.77,
+        description: "Professional EMS training vest",
+        image: "https://images.unsplash.com/photo-1618160702438-9b02ab6515c9",
+        supplier: "EMSGear Pro",
+        sku: "EMS001",
+      },
+      {
+        id: "3",
+        name: "Κάλυμμα Pilates Mat",
+        category: "pilates_accessories",
+        price: 24.99,
+        cost: 12.00,
+        stock: 3,
+        minStock: 15,
+        status: "low_stock",
+        sales: 89,
+        revenue: 2224.11,
+        description: "Antibacterial pilates mat cover",
+        image: "https://images.unsplash.com/photo-1535268647677-300dbf3d78d1",
+        supplier: "PilatesPro",
+        sku: "PIL001",
+      },
+      {
+        id: "4",
+        name: "Cambridge Meal Replacement",
+        category: "cambridge",
+        price: 34.99,
+        cost: 18.00,
+        stock: 45,
+        minStock: 20,
+        status: "active",
+        sales: 78,
+        revenue: 2729.22,
+        description: "Complete meal replacement shake",
+        image: "https://images.unsplash.com/photo-1465146344425-f00d5f5c8f07",
+        supplier: "Cambridge Weight Plan",
+        sku: "CWP001",
+      },
+      {
+        id: "5",
+        name: "Sweat24 Towel",
+        category: "accessories",
+        price: 19.99,
+        cost: 8.00,
+        stock: 0,
+        minStock: 25,
+        status: "out_of_stock",
+        sales: 203,
+        revenue: 4059.97,
+        description: "High-quality gym towel with Sweat24 branding",
+        image: "https://images.unsplash.com/photo-1574680096145-d05b474e2155",
+        supplier: "Local Supplier",
+        sku: "SW24001",
+      },
+    ];
+  };
+
+  const getFallbackSales = (): Sale[] => {
+    return [
+      {
+        id: "1",
+        productName: "Premium Protein Powder",
+        quantity: 2,
+        price: 59.99,
+        total: 119.98,
+        paymentMethod: "pos",
+        customerName: "Γιάννης Παπαδόπουλος",
+        date: "2024-05-24",
+        time: "14:30",
+      },
+      {
+        id: "2",
+        productName: "Στολή EMS Training",
+        quantity: 1,
+        price: 89.99,
+        total: 89.99,
+        paymentMethod: "iris",
+        customerName: "Μαρία Κωνσταντίνου",
+        date: "2024-05-24",
+        time: "10:15",
+      },
+      {
+        id: "3",
+        productName: "Cambridge Meal Replacement",
+        quantity: 3,
+        price: 34.99,
+        total: 104.97,
+        paymentMethod: "cash",
+        customerName: "Κώστας Δημητρίου",
+        date: "2024-05-23",
+        time: "16:45",
+      },
+    ];
+  };
 
   const filteredProducts = products.filter((product) => {
     const matchesSearch = 
@@ -239,27 +311,55 @@ export function StorePage() {
     );
   };
 
-  const handleCreateProduct = () => {
-    const newProduct = {
-      id: Date.now().toString(),
-      name: formData.name,
-      category: formData.category,
-      price: parseFloat(formData.price),
-      cost: parseFloat(formData.cost),
-      stock: parseInt(formData.stock),
-      minStock: parseInt(formData.minStock),
-      status: parseInt(formData.stock) > parseInt(formData.minStock) ? "active" : "low_stock",
-      sales: 0,
-      revenue: 0,
-      description: formData.description,
-      image: null,
-      supplier: formData.supplier,
-      sku: formData.sku,
-    };
+  const handleCreateProduct = async () => {
+    try {
+      const newProduct = {
+        name: formData.name,
+        category: formData.category,
+        price: parseFloat(formData.price),
+        cost: parseFloat(formData.cost),
+        stock: parseInt(formData.stock),
+        minStock: parseInt(formData.minStock),
+        status: parseInt(formData.stock) > parseInt(formData.minStock) ? "active" : "low_stock",
+        description: formData.description,
+        supplier: formData.supplier,
+        sku: formData.sku,
+      };
 
-    setProducts([...products, newProduct]);
-    setIsDialogOpen(false);
-    resetForm();
+      // Try to save via API
+      const response = await api.post('/products', newProduct);
+      
+      if (response && response.data) {
+        setProducts([...products, response.data]);
+        toast({
+          title: "Επιτυχής Δημιουργία",
+          description: "Το προϊόν δημιουργήθηκε επιτυχώς.",
+        });
+      } else {
+        // Fallback to local state
+        const localProduct = {
+          ...newProduct,
+          id: Date.now().toString(),
+          sales: 0,
+          revenue: 0,
+          image: null,
+        };
+        setProducts([...products, localProduct]);
+        toast({
+          title: "Τοπική Αποθήκευση",
+          description: "Το προϊόν αποθηκεύτηκε τοπικά.",
+        });
+      }
+      
+      setIsDialogOpen(false);
+      resetForm();
+    } catch (error) {
+      toast({
+        title: "Σφάλμα",
+        description: "Αποτυχία δημιουργίας προϊόντος.",
+        variant: "destructive"
+      });
+    }
   };
 
   const resetForm = () => {
@@ -539,89 +639,95 @@ export function StorePage() {
                     <CardTitle>Κατάλογος Προϊόντων</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Προϊόν</TableHead>
-                          <TableHead>Κατηγορία</TableHead>
-                          <TableHead>SKU</TableHead>
-                          <TableHead>Τιμή</TableHead>
-                          <TableHead>Στοκ</TableHead>
-                          <TableHead>Κατάσταση</TableHead>
-                          <TableHead>Πωλήσεις</TableHead>
-                          <TableHead>Ενέργειες</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {filteredProducts.map((product) => (
-                          <TableRow key={product.id}>
-                            <TableCell>
-                              <div className="flex items-center space-x-3">
-                                <div className="w-10 h-10 bg-muted rounded-md flex items-center justify-center">
-                                  <Package className="h-5 w-5 text-muted-foreground" />
-                                </div>
-                                <div>
-                                  <div className="font-medium">{product.name}</div>
-                                  <div className="text-sm text-muted-foreground">
-                                    {product.supplier}
+                    {loading ? (
+                      <div className="flex justify-center py-8">
+                        <Loader2 className="h-6 w-6 animate-spin" />
+                      </div>
+                    ) : (
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Προϊόν</TableHead>
+                            <TableHead>Κατηγορία</TableHead>
+                            <TableHead>SKU</TableHead>
+                            <TableHead>Τιμή</TableHead>
+                            <TableHead>Στοκ</TableHead>
+                            <TableHead>Κατάσταση</TableHead>
+                            <TableHead>Πωλήσεις</TableHead>
+                            <TableHead>Ενέργειες</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {filteredProducts.map((product) => (
+                            <TableRow key={product.id}>
+                              <TableCell>
+                                <div className="flex items-center space-x-3">
+                                  <div className="w-10 h-10 bg-muted rounded-md flex items-center justify-center">
+                                    <Package className="h-5 w-5 text-muted-foreground" />
+                                  </div>
+                                  <div>
+                                    <div className="font-medium">{product.name}</div>
+                                    <div className="text-sm text-muted-foreground">
+                                      {product.supplier}
+                                    </div>
                                   </div>
                                 </div>
-                              </div>
-                            </TableCell>
-                            <TableCell>
-                              <Badge variant="outline">{getCategoryLabel(product.category)}</Badge>
-                            </TableCell>
-                            <TableCell>
-                              <code className="text-sm bg-muted px-2 py-1 rounded">
-                                {product.sku}
-                              </code>
-                            </TableCell>
-                            <TableCell>
-                              <div className="text-sm">
-                                <div className="font-medium">€{product.price}</div>
-                                <div className="text-muted-foreground">
-                                  Κόστος: €{product.cost}
+                              </TableCell>
+                              <TableCell>
+                                <Badge variant="outline">{getCategoryLabel(product.category)}</Badge>
+                              </TableCell>
+                              <TableCell>
+                                <code className="text-sm bg-muted px-2 py-1 rounded">
+                                  {product.sku}
+                                </code>
+                              </TableCell>
+                              <TableCell>
+                                <div className="text-sm">
+                                  <div className="font-medium">€{product.price}</div>
+                                  <div className="text-muted-foreground">
+                                    Κόστος: €{product.cost}
+                                  </div>
                                 </div>
-                              </div>
-                            </TableCell>
-                            <TableCell>
-                              <div className="text-sm">
-                                <div className={`font-medium ${product.stock <= product.minStock ? 'text-red-600' : ''}`}>
-                                  {product.stock} τεμ.
+                              </TableCell>
+                              <TableCell>
+                                <div className="text-sm">
+                                  <div className={`font-medium ${product.stock <= product.minStock ? 'text-red-600' : ''}`}>
+                                    {product.stock} τεμ.
+                                  </div>
+                                  <div className="text-muted-foreground">
+                                    Min: {product.minStock}
+                                  </div>
                                 </div>
-                                <div className="text-muted-foreground">
-                                  Min: {product.minStock}
+                              </TableCell>
+                              <TableCell>
+                                {getStatusBadge(product.status, product.stock, product.minStock)}
+                              </TableCell>
+                              <TableCell>
+                                <div className="text-sm">
+                                  <div className="font-medium">{product.sales} τεμ.</div>
+                                  <div className="text-muted-foreground">
+                                    €{product.revenue.toFixed(2)}
+                                  </div>
                                 </div>
-                              </div>
-                            </TableCell>
-                            <TableCell>
-                              {getStatusBadge(product.status, product.stock, product.minStock)}
-                            </TableCell>
-                            <TableCell>
-                              <div className="text-sm">
-                                <div className="font-medium">{product.sales} τεμ.</div>
-                                <div className="text-muted-foreground">
-                                  €{product.revenue.toFixed(2)}
+                              </TableCell>
+                              <TableCell>
+                                <div className="flex items-center space-x-2">
+                                  <Button size="sm" variant="ghost">
+                                    <Eye className="h-4 w-4" />
+                                  </Button>
+                                  <Button size="sm" variant="ghost">
+                                    <Edit className="h-4 w-4" />
+                                  </Button>
+                                  <Button size="sm" variant="ghost">
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
                                 </div>
-                              </div>
-                            </TableCell>
-                            <TableCell>
-                              <div className="flex items-center space-x-2">
-                                <Button size="sm" variant="ghost">
-                                  <Eye className="h-4 w-4" />
-                                </Button>
-                                <Button size="sm" variant="ghost">
-                                  <Edit className="h-4 w-4" />
-                                </Button>
-                                <Button size="sm" variant="ghost">
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    )}
                   </CardContent>
                 </Card>
               </TabsContent>
@@ -633,41 +739,47 @@ export function StorePage() {
                     <CardTitle>Πρόσφατες Πωλήσεις</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Προϊόν</TableHead>
-                          <TableHead>Πελάτης</TableHead>
-                          <TableHead>Ποσότητα</TableHead>
-                          <TableHead>Μέθοδος Πληρωμής</TableHead>
-                          <TableHead>Σύνολο</TableHead>
-                          <TableHead>Ημερομηνία</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {sales.map((sale) => (
-                          <TableRow key={sale.id}>
-                            <TableCell className="font-medium">{sale.productName}</TableCell>
-                            <TableCell>{sale.customerName}</TableCell>
-                            <TableCell>
-                              <Badge variant="outline">{sale.quantity}x</Badge>
-                            </TableCell>
-                            <TableCell>
-                              {getPaymentMethodBadge(sale.paymentMethod)}
-                            </TableCell>
-                            <TableCell>
-                              <div className="font-medium">€{sale.total.toFixed(2)}</div>
-                            </TableCell>
-                            <TableCell>
-                              <div className="text-sm">
-                                <div>{sale.date}</div>
-                                <div className="text-muted-foreground">{sale.time}</div>
-                              </div>
-                            </TableCell>
+                    {loading ? (
+                      <div className="flex justify-center py-8">
+                        <Loader2 className="h-6 w-6 animate-spin" />
+                      </div>
+                    ) : (
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Προϊόν</TableHead>
+                            <TableHead>Πελάτης</TableHead>
+                            <TableHead>Ποσότητα</TableHead>
+                            <TableHead>Μέθοδος Πληρωμής</TableHead>
+                            <TableHead>Σύνολο</TableHead>
+                            <TableHead>Ημερομηνία</TableHead>
                           </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
+                        </TableHeader>
+                        <TableBody>
+                          {sales.map((sale) => (
+                            <TableRow key={sale.id}>
+                              <TableCell className="font-medium">{sale.productName}</TableCell>
+                              <TableCell>{sale.customerName}</TableCell>
+                              <TableCell>
+                                <Badge variant="outline">{sale.quantity}x</Badge>
+                              </TableCell>
+                              <TableCell>
+                                {getPaymentMethodBadge(sale.paymentMethod)}
+                              </TableCell>
+                              <TableCell>
+                                <div className="font-medium">€{sale.total.toFixed(2)}</div>
+                              </TableCell>
+                              <TableCell>
+                                <div className="text-sm">
+                                  <div>{sale.date}</div>
+                                  <div className="text-muted-foreground">{sale.time}</div>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    )}
                   </CardContent>
                 </Card>
               </TabsContent>
@@ -677,4 +789,4 @@ export function StorePage() {
       </div>
     </SidebarProvider>
   );
-} 
+}

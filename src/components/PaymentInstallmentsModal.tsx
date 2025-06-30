@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -30,21 +30,23 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Calendar, CreditCard, Plus, CheckCircle, AlertCircle, Clock } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
-import { mockPaymentInstallments, mockCustomers, mockCustomerPricingAccess, mockGymPackages } from "@/data/mockData";
-import type { PaymentInstallment, CustomerPricingAccess, GymPackage } from "@/data/mockData";
+import { paymentInstallmentsApi, usersApi, packagesApi } from "@/services/api";
+import type { PaymentInstallment, User, Package } from "@/data/mockData";
 import { format } from "date-fns";
 import { el } from "date-fns/locale";
-import { useLocalStorage } from "@/hooks/useLocalStorage";
 
 interface PaymentInstallmentsModalProps {
   customerId?: string;
+  onUpdate?: () => void;
 }
 
-export function PaymentInstallmentsModal({ customerId }: PaymentInstallmentsModalProps) {
+export function PaymentInstallmentsModal({ customerId, onUpdate }: PaymentInstallmentsModalProps) {
   const { toast } = useToast();
   const [isOpen, setIsOpen] = useState(false);
-  const [installments, setInstallments] = useLocalStorage<PaymentInstallment[]>('payment-installments', mockPaymentInstallments);
-  const [pricingAccess, setPricingAccess] = useLocalStorage<CustomerPricingAccess[]>('pricing-access', mockCustomerPricingAccess);
+  const [installments, setInstallments] = useState<PaymentInstallment[]>([]);
+  const [customers, setCustomers] = useState<User[]>([]);
+  const [packages, setPackages] = useState<Package[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
     customerId: customerId || '',
     packageId: '',
@@ -55,12 +57,44 @@ export function PaymentInstallmentsModal({ customerId }: PaymentInstallmentsModa
     notes: ''
   });
 
+  // Fetch data when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      fetchData();
+    }
+  }, [isOpen]);
+
+  const fetchData = async () => {
+    try {
+      setIsLoading(true);
+      const [installmentsData, customersData, packagesData] = await Promise.all([
+        paymentInstallmentsApi.getAll(customerId ? { customer: customerId } : undefined),
+        usersApi.getAll(),
+        packagesApi.getAll()
+      ]);
+      
+      // Handle response data
+      setInstallments(Array.isArray(installmentsData) ? installmentsData : (installmentsData.data || []));
+      setCustomers(Array.isArray(customersData) ? customersData : (customersData.data || []));
+      setPackages(Array.isArray(packagesData) ? packagesData : (packagesData.data || []));
+    } catch (error) {
+      console.error('Error fetching data:', error);
+      toast({
+        title: "Σφάλμα",
+        description: "Αποτυχία φόρτωσης δεδομένων.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const filteredInstallments = customerId 
     ? installments.filter(inst => inst.customerId === customerId)
     : installments;
 
   const getCustomerName = (id: string) => {
-    const customer = mockCustomers.find(c => c.id === id);
+    const customer = customers.find(c => c.id === id);
     return customer?.name || 'Άγνωστος';
   };
 
@@ -86,7 +120,7 @@ export function PaymentInstallmentsModal({ customerId }: PaymentInstallmentsModa
     }
   };
 
-  const handleCreateInstallments = () => {
+  const handleCreateInstallments = async () => {
     if (!formData.customerId || !formData.packageId || !formData.totalAmount) {
       toast({
         title: "Σφάλμα",
@@ -109,109 +143,111 @@ export function PaymentInstallmentsModal({ customerId }: PaymentInstallmentsModa
       return;
     }
 
-    const customer = mockCustomers.find(c => c.id === formData.customerId);
-    const selectedPackage = mockGymPackages.find(p => p.id === formData.packageId);
+    const customer = customers.find(c => c.id === formData.customerId);
+    const selectedPackage = packages.find(p => p.id === formData.packageId);
     if (!customer || !selectedPackage) return;
 
-    // Δημιουργία δόσεων
-    const newInstallments: PaymentInstallment[] = [];
-    const firstDueDate = new Date(formData.firstDueDate);
+    try {
+      setIsLoading(true);
+      const firstDueDate = new Date(formData.firstDueDate);
+      
+      // Create installments via API calls
+      const promises = [];
+      for (let i = 0; i < installmentCount; i++) {
+        const dueDate = new Date(firstDueDate);
+        dueDate.setMonth(dueDate.getMonth() + i);
 
-    for (let i = 0; i < installmentCount; i++) {
-      const dueDate = new Date(firstDueDate);
-      dueDate.setMonth(dueDate.getMonth() + i);
-
-      newInstallments.push({
-        id: `inst_${Date.now()}_${i}`,
-        customerId: formData.customerId,
-        customerName: customer.name,
-        packageId: formData.packageId,
-        packageName: selectedPackage.name,
-        installmentNumber: i + 1,
-        totalInstallments: installmentCount,
-        amount: Math.round(installmentAmount * 100) / 100,
-        dueDate: format(dueDate, 'yyyy-MM-dd'),
-        status: 'pending',
-        notes: formData.notes
+        const installmentData = {
+          customerId: formData.customerId,
+          customerName: customer.name,
+          packageId: formData.packageId,
+          packageName: selectedPackage.name,
+          installmentNumber: i + 1,
+          totalInstallments: installmentCount,
+          amount: Math.round(installmentAmount * 100) / 100,
+          dueDate: format(dueDate, 'yyyy-MM-dd'),
+          status: 'pending' as const,
+          notes: formData.notes
+        };
+        
+        promises.push(paymentInstallmentsApi.create(installmentData));
+      }
+      
+      await Promise.all(promises);
+      
+      toast({
+        title: "Δόσεις Δημιουργήθηκαν",
+        description: `Δημιουργήθηκαν ${installmentCount} δόσεις για τον ${customer.name}.`
       });
+      
+      // Reset form
+      setFormData({
+        customerId: customerId || '',
+        packageId: '',
+        totalAmount: '',
+        installmentCount: '1',
+        firstDueDate: format(new Date(), 'yyyy-MM-dd'),
+        paymentMethod: 'cash',
+        notes: ''
+      });
+      
+      // Refresh data
+      await fetchData();
+      if (onUpdate) onUpdate();
+      
+      setIsOpen(false);
+    } catch (error) {
+      console.error('Error creating installments:', error);
+      toast({
+        title: "Σφάλμα",
+        description: "Αποτυχία δημιουργίας δόσεων.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoading(false);
     }
-
-    setInstallments(prev => [...newInstallments, ...prev]);
-
-    toast({
-      title: "Δόσεις Δημιουργήθηκαν",
-      description: `Δημιουργήθηκαν ${installmentCount} δόσεις για τον ${customer.name}.`
-    });
-
-    // Reset form
-    setFormData({
-      customerId: customerId || '',
-      packageId: '',
-      totalAmount: '',
-      installmentCount: '1',
-      firstDueDate: format(new Date(), 'yyyy-MM-dd'),
-      paymentMethod: 'cash',
-      notes: ''
-    });
-
-    setIsOpen(false);
   };
 
-  const handlePayInstallment = (installmentId: string, paymentMethod: 'cash' | 'card' | 'transfer') => {
+  const handlePayInstallment = async (installmentId: string, paymentMethod: 'cash' | 'card' | 'transfer') => {
     const installment = installments.find(inst => inst.id === installmentId);
     if (!installment) return;
 
-    // Έλεγχος αν είναι η πρώτη πληρωμή του πελάτη
-    const customerAccess = pricingAccess.find(access => access.customerId === installment.customerId);
-    const isFirstPayment = !customerAccess?.hasAccess;
-
-    // Ενημέρωση δόσης
-    setInstallments(prev => prev.map(inst => 
-      inst.id === installmentId 
-        ? { 
-            ...inst, 
-            status: 'paid',
-            paidDate: format(new Date(), 'yyyy-MM-dd'),
-            paymentMethod: paymentMethod
-          }
-        : inst
-    ));
-
-    if (isFirstPayment) {
-      // Αυτόματο ξεκλείδωμα τιμοκαταλόγου
-      const updatedAccess: CustomerPricingAccess = {
-        customerId: installment.customerId,
-        customerName: installment.customerName,
-        hasAccess: true,
-        firstPurchaseDate: format(new Date(), 'yyyy-MM-dd'),
-        firstPurchaseAmount: installment.amount,
-        unlockedBy: "admin1", // Θα έρθει από context
-        unlockedAt: new Date().toISOString(),
-        notes: "Αυτόματο ξεκλείδωμα μετά την πρώτη πληρωμή"
-      };
-
-      setPricingAccess(prev => {
-        const filtered = prev.filter(access => access.customerId !== installment.customerId);
-        return [updatedAccess, ...filtered];
+    try {
+      setIsLoading(true);
+      
+      // Update installment via API
+      await paymentInstallmentsApi.update(installmentId, {
+        status: 'paid' as const,
+        paidDate: format(new Date(), 'yyyy-MM-dd'),
+        paymentMethod: paymentMethod
       });
-
+      
       toast({
-        title: "🎉 ΤΙΜΟΚΑΤΑΛΟΓΟΣ ΞΕΚΛΕΙΔΩΘΗΚΕ!",
-        description: `Η πρώτη πληρωμή €${installment.amount} καταγράφηκε και ο τιμοκατάλογος ενεργοποιήθηκε για τον ${installment.customerName}!`,
-        duration: 8000,
-        className: "bg-green-50 border-green-200 text-green-800"
-      });
-    } else {
-      toast({
-        title: "Πληρωμή Καταγράφηκε ✅",
+        title: "Πληρωμή Καταγράφηκε ✓",
         description: `Η δόση των €${installment.amount} καταγράφηκε επιτυχώς.`
       });
+      
+      // Refresh data
+      await fetchData();
+      if (onUpdate) onUpdate();
+      
+    } catch (error) {
+      console.error('Error updating installment:', error);
+      toast({
+        title: "Σφάλμα",
+        description: "Αποτυχία καταγραφής πληρωμής.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const overdueSummary = filteredInstallments.filter(inst => inst.status === 'overdue');
   const pendingSummary = filteredInstallments.filter(inst => inst.status === 'pending');
   const totalPending = pendingSummary.reduce((sum, inst) => sum + inst.amount, 0);
+  
+  const hasAccess = customerId ? customers.find(c => c.id === customerId)?.status === 'active' : false;
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
@@ -260,7 +296,7 @@ export function PaymentInstallmentsModal({ customerId }: PaymentInstallmentsModa
                   <CardTitle className="text-sm">Πρόσβαση Τιμοκαταλόγου</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  {pricingAccess.find(access => access.customerId === customerId)?.hasAccess ? (
+                  {hasAccess ? (
                     <div className="text-2xl font-bold text-green-600">✓</div>
                   ) : (
                     <div className="text-2xl font-bold text-gray-400">✗</div>
@@ -286,7 +322,7 @@ export function PaymentInstallmentsModal({ customerId }: PaymentInstallmentsModa
                         <SelectValue placeholder="Επιλογή πελάτη" />
                       </SelectTrigger>
                       <SelectContent>
-                        {mockCustomers.map(customer => (
+                        {customers.map(customer => (
                           <SelectItem key={customer.id} value={customer.id}>
                             {customer.name}
                           </SelectItem>
@@ -300,7 +336,7 @@ export function PaymentInstallmentsModal({ customerId }: PaymentInstallmentsModa
                   <Select 
                     value={formData.packageId} 
                     onValueChange={(value) => {
-                      const selectedPackage = mockGymPackages.find(p => p.id === value);
+                      const selectedPackage = packages.find(p => p.id === value);
                       setFormData(prev => ({
                         ...prev, 
                         packageId: value,
@@ -312,7 +348,7 @@ export function PaymentInstallmentsModal({ customerId }: PaymentInstallmentsModa
                       <SelectValue placeholder="Επιλογή πακέτου" />
                     </SelectTrigger>
                     <SelectContent>
-                      {mockGymPackages.map(pkg => (
+                      {packages.map(pkg => (
                         <SelectItem key={pkg.id} value={pkg.id}>
                           <div className="flex justify-between items-center w-full">
                             <span>{pkg.name}</span>
@@ -369,9 +405,9 @@ export function PaymentInstallmentsModal({ customerId }: PaymentInstallmentsModa
                   rows={2}
                 />
               </div>
-              <Button onClick={handleCreateInstallments} className="w-fit">
+              <Button onClick={handleCreateInstallments} className="w-fit" disabled={isLoading}>
                 <Plus className="h-4 w-4 mr-2" />
-                Δημιουργία Δόσεων
+                {isLoading ? 'Περιμένετε...' : 'Δημιουργία Δόσεων'}
               </Button>
             </div>
           </div>
@@ -416,6 +452,7 @@ export function PaymentInstallmentsModal({ customerId }: PaymentInstallmentsModa
                             size="sm"
                             onClick={() => handlePayInstallment(installment.id, 'cash')}
                             className="bg-green-50 hover:bg-green-100 text-green-700 border-green-200"
+                            disabled={isLoading}
                           >
                             💵 ΠΛΗΡΩΣΗ Μετρητά
                           </Button>
@@ -424,6 +461,7 @@ export function PaymentInstallmentsModal({ customerId }: PaymentInstallmentsModa
                             size="sm"
                             onClick={() => handlePayInstallment(installment.id, 'card')}
                             className="bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-200"
+                            disabled={isLoading}
                           >
                             💳 ΠΛΗΡΩΣΗ Κάρτα
                           </Button>
@@ -445,4 +483,4 @@ export function PaymentInstallmentsModal({ customerId }: PaymentInstallmentsModa
       </DialogContent>
     </Dialog>
   );
-} 
+}

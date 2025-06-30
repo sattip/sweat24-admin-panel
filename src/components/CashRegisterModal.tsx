@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -41,15 +41,20 @@ import {
   Building
 } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
-import { mockCashRegisterEntries } from "@/data/mockData";
+import { cashRegisterApi } from "@/services/api";
 import type { CashRegisterEntry } from "@/data/mockData";
 import { format } from "date-fns";
 import { el } from "date-fns/locale";
 
-export function CashRegisterModal() {
+interface CashRegisterModalProps {
+  onUpdate?: () => void;
+}
+
+export function CashRegisterModal({ onUpdate }: CashRegisterModalProps) {
   const { toast } = useToast();
   const [isOpen, setIsOpen] = useState(false);
-  const [entries, setEntries] = useState<CashRegisterEntry[]>(mockCashRegisterEntries);
+  const [entries, setEntries] = useState<CashRegisterEntry[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
     type: 'income' as 'income' | 'withdrawal',
     amount: '',
@@ -78,7 +83,33 @@ export function CashRegisterModal() {
     return formData.type === 'income' ? incomeCategories : withdrawalCategories;
   };
 
-  const handleAddEntry = () => {
+  // Fetch data when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      fetchEntries();
+    }
+  }, [isOpen]);
+
+  const fetchEntries = async () => {
+    try {
+      setIsLoading(true);
+      const response = await cashRegisterApi.getAll();
+      // Handle response data
+      const entriesData = Array.isArray(response) ? response : (response.data || []);
+      setEntries(entriesData);
+    } catch (error) {
+      console.error('Error fetching cash register entries:', error);
+      toast({
+        title: "Σφάλμα",
+        description: "Αποτυχία φόρτωσης καταχωρήσεων ταμείου.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleAddEntry = async () => {
     if (!formData.amount || !formData.description || !formData.category) {
       toast({
         title: "Σφάλμα",
@@ -98,33 +129,50 @@ export function CashRegisterModal() {
       return;
     }
 
-    const newEntry: CashRegisterEntry = {
-      id: `cr_${Date.now()}`,
-      type: formData.type,
-      amount: amount,
-      description: formData.description,
-      category: formData.category,
-      timestamp: new Date().toISOString(),
-      userId: "admin1", // Θα έρθει από context
-      paymentMethod: formData.paymentMethod
-    };
+    try {
+      setIsLoading(true);
+      
+      const newEntry = {
+        type: formData.type,
+        amount: amount,
+        description: formData.description,
+        category: formData.category,
+        timestamp: new Date().toISOString(),
+        userId: "admin1", // This would come from auth context
+        paymentMethod: formData.paymentMethod
+      };
 
-    setEntries(prev => [newEntry, ...prev]);
+      await cashRegisterApi.create(newEntry);
 
-    const actionText = formData.type === 'income' ? 'Έσοδο' : 'Ανάληψη';
-    toast({
-      title: `${actionText} Καταγράφηκε`,
-      description: `${actionText} €${amount} καταγράφηκε επιτυχώς στο ταμείο.`
-    });
+      const actionText = formData.type === 'income' ? 'Έσοδο' : 'Ανάληψη';
+      toast({
+        title: `${actionText} Καταγράφηκε`,
+        description: `${actionText} €${amount} καταγράφηκε επιτυχώς στο ταμείο.`
+      });
 
-    // Reset form
-    setFormData({
-      type: 'income',
-      amount: '',
-      description: '',
-      category: '',
-      paymentMethod: 'cash'
-    });
+      // Reset form
+      setFormData({
+        type: 'income',
+        amount: '',
+        description: '',
+        category: '',
+        paymentMethod: 'cash'
+      });
+
+      // Refresh data
+      await fetchEntries();
+      if (onUpdate) onUpdate();
+      
+    } catch (error) {
+      console.error('Error creating cash register entry:', error);
+      toast({
+        title: "Σφάλμα",
+        description: "Αποτυχία καταχώρησης στο ταμείο.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   // Calculations
@@ -365,9 +413,9 @@ export function CashRegisterModal() {
                     />
                   </div>
 
-                  <Button onClick={handleAddEntry} className="w-fit">
+                  <Button onClick={handleAddEntry} className="w-fit" disabled={isLoading}>
                     <Plus className="h-4 w-4 mr-2" />
-                    Καταχώρηση Συναλλαγής
+                    {isLoading ? 'Περιμένετε...' : 'Καταχώρηση Συναλλαγής'}
                   </Button>
                 </div>
               </div>
@@ -430,4 +478,4 @@ export function CashRegisterModal() {
       </DialogContent>
     </Dialog>
   );
-} 
+}
