@@ -130,10 +130,14 @@ export function LoginPage() {
 
           <div className="mt-6 text-center text-sm text-muted-foreground">
             <p>Demo στοιχεία σύνδεσης:</p>
-            <p className="mt-1">
-              <strong>Email:</strong> admin@sweat24.com<br />
-              <strong>Κωδικός:</strong> password
-            </p>
+            <div className="mt-2 space-y-2">
+              <p>
+                <strong>Admin:</strong> admin@sweat24.gr / password
+              </p>
+              <p>
+                <strong>Trainer:</strong> trainer@sweat24.gr / password
+              </p>
+            </div>
           </div>
         </CardContent>
       </Card>

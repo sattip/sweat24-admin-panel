@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { AdminSidebar } from "@/components/AdminSidebar";
 import { AdminHeader } from "@/components/AdminHeader";
@@ -30,20 +30,67 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
-import { Calendar as CalendarIcon, User, Mail, Phone, ArrowLeft, Package, Plus, Play, Pause, History, CalendarPlus, CreditCard } from "lucide-react";
-import { mockUsersData } from "@/data/mockData";
+import { Calendar as CalendarIcon, User, Mail, Phone, ArrowLeft, Package, Plus, Play, Pause, History, CalendarPlus, CreditCard, Edit } from "lucide-react";
 import type { User as UserType, UserPackage } from "@/data/mockData";
 import { notifyPackageExtension } from "@/utils/notifications";
 import { PaymentInstallmentsModal } from "@/components/PaymentInstallmentsModal";
+import SignatureDisplay from "@/components/SignatureDisplay";
+import { apiService, usersApi } from "@/services/apiService";
 
 
 export function UserProfilePage() {
     const { userId } = useParams();
     const { toast } = useToast();
     
-    const user: UserType | undefined = mockUsersData.find(u => u.id === userId);
+    const [user, setUser] = useState<UserType | undefined>(undefined);
+    const [loading, setLoading] = useState(true);
+    const [userPackages, setUserPackages] = useState<UserPackage[]>([]);
+    const [signatures, setSignatures] = useState<any[]>([]);
+    const [loadingSignatures, setLoadingSignatures] = useState(false);
     
-    const [userPackages, setUserPackages] = useState<UserPackage[]>(user?.packages || []);
+    useEffect(() => {
+        if (userId) {
+            fetchUserData();
+            fetchSignatures();
+        }
+    }, [userId]);
+    
+    const fetchUserData = async () => {
+        if (!userId) return;
+        
+        setLoading(true);
+        try {
+            const userData = await usersApi.getById(userId);
+            setUser(userData);
+            setUserPackages(userData.packages || []);
+        } catch (error) {
+            console.error('Error fetching user:', error);
+            toast({
+                title: "Σφάλμα",
+                description: "Αποτυχία φόρτωσης δεδομένων χρήστη.",
+                variant: "destructive"
+            });
+        } finally {
+            setLoading(false);
+        }
+    };
+    
+    const fetchSignatures = async () => {
+        if (!userId) return;
+        
+        setLoadingSignatures(true);
+        try {
+            const response = await apiService.get(`/users/${userId}/signatures`);
+            if (response.data?.signatures) {
+                setSignatures(response.data.signatures);
+            }
+        } catch (error) {
+            console.error('Error fetching signatures:', error);
+            // Don't show error toast as signatures might not exist
+        } finally {
+            setLoadingSignatures(false);
+        }
+    };
 
     const handleTogglePause = (packageId: string) => {
         setUserPackages(prevPackages => prevPackages.map(p => {
@@ -93,25 +140,55 @@ export function UserProfilePage() {
         }));
     };
     
+    if (loading) {
+        return (
+            <SidebarProvider>
+                <div className="min-h-screen flex w-full bg-background">
+                    <AdminSidebar />
+                    <div className="flex-1 flex flex-col">
+                        <AdminHeader />
+                        <main className="flex-1 p-6 space-y-6">
+                            <div className="flex items-center justify-center h-full">
+                                <div className="text-center">
+                                    <h2 className="text-xl font-semibold mb-2">Φόρτωση δεδομένων χρήστη...</h2>
+                                </div>
+                            </div>
+                        </main>
+                    </div>
+                </div>
+            </SidebarProvider>
+        );
+    }
+    
     if (!user) {
         return (
-             <div className="flex items-center justify-center h-screen">
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Σφάλμα</CardTitle>
-                        <CardDescription>Ο χρήστης δεν βρέθηκε.</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <Link to="/users">
-                            <Button variant="outline">
-                                <ArrowLeft className="mr-2 h-4 w-4" />
-                                Επιστροφή στους Πελάτες
-                            </Button>
-                        </Link>
-                    </CardContent>
-                </Card>
-            </div>
-        )
+            <SidebarProvider>
+                <div className="min-h-screen flex w-full bg-background">
+                    <AdminSidebar />
+                    <div className="flex-1 flex flex-col">
+                        <AdminHeader />
+                        <main className="flex-1 p-6 space-y-6">
+                            <div className="flex items-center justify-center h-full">
+                                <Card>
+                                    <CardHeader>
+                                        <CardTitle>Σφάλμα</CardTitle>
+                                        <CardDescription>Ο χρήστης δεν βρέθηκε.</CardDescription>
+                                    </CardHeader>
+                                    <CardContent>
+                                        <Link to="/users">
+                                            <Button variant="outline">
+                                                <ArrowLeft className="mr-2 h-4 w-4" />
+                                                Επιστροφή στους Πελάτες
+                                            </Button>
+                                        </Link>
+                                    </CardContent>
+                                </Card>
+                            </div>
+                        </main>
+                    </div>
+                </div>
+            </SidebarProvider>
+        );
     }
     
     const getStatusBadge = (status) => {
@@ -151,6 +228,12 @@ export function UserProfilePage() {
                                     </div>
                                 </div>
                                 <div className="flex gap-2">
+                                    <Link to={`/users/${userId}/edit`}>
+                                        <Button variant="outline">
+                                            <Edit className="mr-2 h-4 w-4"/>
+                                            Επεξεργασία
+                                        </Button>
+                                    </Link>
                                     <Dialog>
                                         <DialogTrigger asChild>
                                             <Button><Plus className="mr-2 h-4 w-4"/>Ανάθεση Πακέτου</Button>
@@ -222,14 +305,39 @@ export function UserProfilePage() {
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
-                                       {user.activityLog.map((log, index) => (
-                                            <TableRow key={index}>
-                                                <TableCell>{new Date(log.date).toLocaleDateString('el-GR')}</TableCell>
-                                                <TableCell>{log.action}</TableCell>
-                                            </TableRow>
-                                       ))}
+                                       {user.activityLog && user.activityLog.length > 0 ? (
+                                           user.activityLog.map((log, index) => (
+                                                <TableRow key={index}>
+                                                    <TableCell>{new Date(log.date).toLocaleDateString('el-GR')}</TableCell>
+                                                    <TableCell>{log.action}</TableCell>
+                                                </TableRow>
+                                           ))
+                                       ) : (
+                                           <TableRow>
+                                               <TableCell colSpan={2} className="text-center text-muted-foreground">
+                                                   Δεν υπάρχει ιστορικό δραστηριότητας
+                                               </TableCell>
+                                           </TableRow>
+                                       )}
                                     </TableBody>
                                 </Table>
+                            </CardContent>
+                        </Card>
+                        
+                        {/* Digital Signatures */}
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>Ψηφιακές Υπογραφές</CardTitle>
+                                <CardDescription>Υπογραφές όρων χρήσης και άλλων εγγράφων</CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                                {loadingSignatures ? (
+                                    <div className="text-center py-4 text-muted-foreground">
+                                        Φόρτωση υπογραφών...
+                                    </div>
+                                ) : (
+                                    <SignatureDisplay signatures={signatures} />
+                                )}
                             </CardContent>
                         </Card>
                     </main>

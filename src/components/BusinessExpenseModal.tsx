@@ -9,7 +9,6 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import {
   Select,
@@ -25,9 +24,14 @@ import { mockBusinessExpenses } from "@/data/mockData";
 import type { BusinessExpense } from "@/data/mockData";
 import { format } from "date-fns";
 
-export function BusinessExpenseModal() {
+interface BusinessExpenseModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onSuccess: () => void;
+}
+
+export function BusinessExpenseModal({ isOpen, onClose, onSuccess }: BusinessExpenseModalProps) {
   const { toast } = useToast();
-  const [isOpen, setIsOpen] = useState(false);
   const [expenses, setExpenses] = useState<BusinessExpense[]>(mockBusinessExpenses);
   const [formData, setFormData] = useState({
     category: '' as 'utilities' | 'equipment' | 'maintenance' | 'supplies' | 'marketing' | 'other' | '',
@@ -99,7 +103,8 @@ export function BusinessExpenseModal() {
       notes: ''
     });
 
-    setIsOpen(false);
+    onSuccess();
+    onClose();
   };
 
   const handleApprove = (expenseId: string) => {
@@ -129,13 +134,7 @@ export function BusinessExpenseModal() {
   const approvedExpenses = expenses.filter(exp => exp.approved);
 
   return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      <DialogTrigger asChild>
-        <Button variant="outline" size="sm">
-          <Receipt className="h-4 w-4 mr-2" />
-          Νέο Έξοδο
-        </Button>
-      </DialogTrigger>
+    <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-4xl">
         <DialogHeader>
           <DialogTitle>Καταγραφή Εξόδων Γυμναστηρίου</DialogTitle>

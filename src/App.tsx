@@ -12,12 +12,24 @@ import { UsersPage } from "./pages/UsersPage";
 import { ClassesPage } from "./pages/ClassesPage";
 import { BookingsPage } from "./pages/BookingsPage";
 import { TrainersPage } from "./pages/TrainersPage";
-import { StorePage } from "./pages/StorePage";
+import { StorePageNew as StorePage } from "./pages/StorePageNew";
 import { FinancePage } from "./pages/FinancePage";
 import { AssessmentPage } from "./pages/AssessmentPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { PackagesPage } from "./pages/PackagesPage";
 import { UserProfilePage } from "./pages/UserProfilePage";
+import { UserEditPage } from "./pages/UserEditPage";
+import PaymentsPage from "./pages/PaymentsPage";
+import CashRegisterPage from "./pages/CashRegisterPage";
+import ExpensesPage from "./pages/ExpensesPage";
+import ReportsPage from "./pages/ReportsPage";
+import CancellationPoliciesPage from "./pages/CancellationPoliciesPage";
+import { NotificationsPage } from "./pages/NotificationsPage";
+import { AdminChatWidget } from "./components/AdminChatWidget";
+import SpecializedServicesPage from "./pages/SpecializedServicesPage";
+import ReferralProgramPage from "./pages/ReferralProgramPage";
+import PartnersPage from "./pages/PartnersPage";
+import EventsPage from "./pages/EventsPage";
 
 const queryClient = new QueryClient();
 
@@ -54,6 +66,14 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <UserProfilePage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/users/:userId/edit"
+              element={
+                <ProtectedRoute>
+                  <UserEditPage />
                 </ProtectedRoute>
               }
             />
@@ -106,6 +126,38 @@ const App = () => (
               }
             />
             <Route
+              path="/payments"
+              element={
+                <ProtectedRoute>
+                  <PaymentsPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/cash-register"
+              element={
+                <ProtectedRoute>
+                  <CashRegisterPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/expenses"
+              element={
+                <ProtectedRoute>
+                  <ExpensesPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/reports"
+              element={
+                <ProtectedRoute>
+                  <ReportsPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
               path="/assessment"
               element={
                 <ProtectedRoute>
@@ -121,10 +173,59 @@ const App = () => (
                 </ProtectedRoute>
               }
             />
+            <Route
+              path="/cancellation-policies"
+              element={
+                <ProtectedRoute>
+                  <CancellationPoliciesPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/notifications"
+              element={
+                <ProtectedRoute>
+                  <NotificationsPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/specialized-services"
+              element={
+                <ProtectedRoute>
+                  <SpecializedServicesPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/referral-program"
+              element={
+                <ProtectedRoute>
+                  <ReferralProgramPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/partners"
+              element={
+                <ProtectedRoute>
+                  <PartnersPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/events"
+              element={
+                <ProtectedRoute>
+                  <EventsPage />
+                </ProtectedRoute>
+              }
+            />
 
             {/* Catch-all route */}
             <Route path="*" element={<NotFound />} />
           </Routes>
+          <AdminChatWidget />
         </BrowserRouter>
       </TooltipProvider>
     </AuthProvider>

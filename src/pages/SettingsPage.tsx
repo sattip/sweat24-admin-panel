@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Link } from "react-router-dom";
 import {
   Select,
   SelectContent,
@@ -213,22 +214,34 @@ export function SettingsPage() {
                       />
                     </div>
                     <div>
-                      <Label>Πολιτική Ακύρωσης (ώρες πριν την έναρξη)</Label>
-                      <Select 
-                        value={gymSettings.cancellationPolicy.toString()} 
-                        onValueChange={(value) => setGymSettings({...gymSettings, cancellationPolicy: parseInt(value)})}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Επιλέξτε χρονικό όριο" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="2">2 ώρες</SelectItem>
-                          <SelectItem value="4">4 ώρες</SelectItem>
-                          <SelectItem value="12">12 ώρες</SelectItem>
-                          <SelectItem value="24">24 ώρες</SelectItem>
-                          <SelectItem value="48">48 ώρες</SelectItem>
-                        </SelectContent>
-                      </Select>
+                      <Label>Πολιτική Ακύρωσης</Label>
+                      <div className="flex items-center gap-2">
+                        <Select 
+                          value={gymSettings.cancellationPolicy.toString()} 
+                          onValueChange={(value) => setGymSettings({...gymSettings, cancellationPolicy: parseInt(value)})}
+                          className="flex-1"
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Επιλέξτε χρονικό όριο" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="2">2 ώρες</SelectItem>
+                            <SelectItem value="4">4 ώρες</SelectItem>
+                            <SelectItem value="12">12 ώρες</SelectItem>
+                            <SelectItem value="24">24 ώρες</SelectItem>
+                            <SelectItem value="48">48 ώρες</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <Link to="/cancellation-policies">
+                          <Button variant="outline" size="sm">
+                            <Settings className="h-4 w-4 mr-2" />
+                            Διαχείριση Πολιτικών
+                          </Button>
+                        </Link>
+                      </div>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        Ορίστε λεπτομερείς πολιτικές ακύρωσης και μετάθεσης ανά τύπο μαθήματος
+                      </p>
                     </div>
                     <div className="flex items-center justify-between">
                       <div>

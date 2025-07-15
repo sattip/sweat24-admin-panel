@@ -43,7 +43,7 @@ import {
   X,
   Loader2,
 } from "lucide-react";
-import { format } from "date-fns";
+import { format, parseISO } from "date-fns";
 import { el } from "date-fns/locale";
 import { useToast } from "@/components/ui/use-toast";
 import { bookingsApi, usersApi, classesApi, instructorsApi } from "@/services/api";
@@ -51,6 +51,42 @@ import type { Booking, User as UserType, Class, Instructor } from "@/data/mockDa
 import { notifyGracefulCancellation } from "@/utils/notifications";
 
 type DialogType = 'transfer' | 'new' | null;
+
+// Helper functions for date/time formatting
+const formatBookingDate = (dateStr: string) => {
+  if (!dateStr) return '';
+  
+  // Handle ISO format with T
+  if (dateStr.includes('T')) {
+    const date = parseISO(dateStr);
+    return format(date, 'dd/MM/yyyy', { locale: el });
+  }
+  
+  // Handle simple date format
+  try {
+    const date = new Date(dateStr);
+    return format(date, 'dd/MM/yyyy', { locale: el });
+  } catch {
+    return dateStr;
+  }
+};
+
+const formatBookingTime = (timeStr: string) => {
+  if (!timeStr) return '';
+  
+  // Handle ISO format with T
+  if (timeStr.includes('T')) {
+    const date = parseISO(timeStr);
+    return format(date, 'HH:mm');
+  }
+  
+  // Handle simple time format
+  if (timeStr.includes(':')) {
+    return timeStr.substring(0, 5); // Get HH:mm from HH:mm:ss
+  }
+  
+  return timeStr;
+};
 
 export function BookingsPage() {
   const { toast } = useToast();
@@ -62,7 +98,7 @@ export function BookingsPage() {
   const [isCreating, setIsCreating] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
-  const [selectedDate, setSelectedDate] = useState("today");
+  const [selectedDate, setSelectedDate] = useState("all");
   
   const [openDialog, setOpenDialog] = useState<DialogType>(null);
   
@@ -87,6 +123,8 @@ export function BookingsPage() {
     const fetchData = async () => {
       try {
         setIsLoading(true);
+        console.log('🔄 BookingsPage: Starting data fetch...');
+        
         const [bookingsResponse, usersResponse, classesResponse, instructorsResponse] = await Promise.all([
           bookingsApi.getAll(),
           usersApi.getAll(),
@@ -94,12 +132,33 @@ export function BookingsPage() {
           instructorsApi.getAll()
         ]);
         
-        setBookings(bookingsResponse.data || bookingsResponse || []);
-        setUsers(usersResponse.data || usersResponse || []);
-        setClasses(classesResponse.data || classesResponse || []);
-        setInstructors(instructorsResponse.data || instructorsResponse || []);
+        console.log('📥 BookingsPage: Raw API responses:', {
+          bookingsResponse,
+          usersResponse,
+          classesResponse,
+          instructorsResponse
+        });
+        
+        // Handle both wrapped and unwrapped responses
+        const bookingsData = Array.isArray(bookingsResponse) ? bookingsResponse : (bookingsResponse.data || []);
+        const usersData = Array.isArray(usersResponse) ? usersResponse : (usersResponse.data || []);
+        const classesData = Array.isArray(classesResponse) ? classesResponse : (classesResponse.data || []);
+        const instructorsData = Array.isArray(instructorsResponse) ? instructorsResponse : (instructorsResponse.data || []);
+        
+        console.log('✅ BookingsPage: Processed data:', {
+          bookingsCount: bookingsData.length,
+          bookingsData,
+          usersCount: usersData.length,
+          classesCount: classesData.length,
+          instructorsCount: instructorsData.length
+        });
+        
+        setBookings(bookingsData);
+        setUsers(usersData);
+        setClasses(classesData);
+        setInstructors(instructorsData);
       } catch (error) {
-        console.error('Error fetching data:', error);
+        console.error('❌ BookingsPage: Error fetching data:', error);
         toast({
           title: "Σφάλμα",
           description: "Αποτυχία φόρτωσης δεδομένων. Παρακαλώ δοκιμάστε ξανά.",
@@ -616,8 +675,8 @@ export function BookingsPage() {
                         <TableCell>{booking.instructor}</TableCell>
                         <TableCell>
                           <div className="text-sm">
-                            <div>{booking.date}</div>
-                            <div className="text-muted-foreground">{booking.time}</div>
+                            <div>{formatBookingDate(booking.date)}</div>
+                            <div className="text-muted-foreground">{formatBookingTime(booking.time)}</div>
                           </div>
                         </TableCell>
                         <TableCell>

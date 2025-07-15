@@ -2,11 +2,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Plus, UserPlus, Calendar, Package, Bell, Wallet, CreditCard, Receipt } from "lucide-react";
 import { PaymentInstallmentsModal } from "./PaymentInstallmentsModal";
-import { CashRegisterModal } from "./CashRegisterModal";
-import { BusinessExpenseModal } from "./BusinessExpenseModal";
 import { NotificationSendModal } from "./NotificationSendModal";
 import { NewUserModal } from "./NewUserModal";
 import { NewClassModal } from "./NewClassModal";
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 const quickActions = [
   {
@@ -17,8 +17,8 @@ const quickActions = [
     component: "installments"
   },
   {
-    title: "Live Ταμείο",
-    description: "Καταγραφή εσόδων και αναλήψεων",
+    title: "Διαχείριση Ταμείου",
+    description: "Καταγραφή εσόδων και εξόδων",
     icon: Wallet,
     action: "Άνοιγμα Ταμείου",
     component: "cashregister"
@@ -29,13 +29,6 @@ const quickActions = [
     icon: UserPlus,
     action: "Προσθήκη Μέλους",
     component: "newuser"
-  },
-  {
-    title: "Καταγραφή Εξόδων",
-    description: "Καταχώρηση λειτουργικών εξόδων",
-    icon: Receipt,
-    action: "Νέο Έξοδο",
-    component: "expenses"
   },
   {
     title: "Προγραμματισμός Μαθήματος",
@@ -54,6 +47,12 @@ const quickActions = [
 ];
 
 export function QuickActions() {
+  const navigate = useNavigate();
+  
+  const handleCashRegisterClick = () => {
+    navigate('/cash-register');
+  };
+
   return (
     <Card
       className="bg-card border border-border rounded-lg shadow-sm"
@@ -106,9 +105,13 @@ export function QuickActions() {
               {action.component === "installments" ? (
                 <PaymentInstallmentsModal />
               ) : action.component === "cashregister" ? (
-                <CashRegisterModal />
-              ) : action.component === "expenses" ? (
-                <BusinessExpenseModal />
+                <Button
+                  size="sm"
+                  className="bg-primary hover:bg-primary/90 text-primary-foreground font-medium px-3 py-2 rounded-md transition-colors text-xs w-full"
+                  onClick={handleCashRegisterClick}
+                >
+                  {action.action}
+                </Button>
               ) : action.component === "notification" ? (
                 <NotificationSendModal />
               ) : action.component === "newuser" ? (

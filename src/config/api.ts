@@ -1,7 +1,7 @@
 // API Configuration for SWEAT24 Admin Panel
 console.log('Environment API URL:', import.meta.env.VITE_API_URL);
 export const API_CONFIG = {
-  BASE_URL: import.meta.env.VITE_API_URL || 'http://localhost:8001',
+  BASE_URL: import.meta.env.VITE_API_URL || 'http://localhost:8080',
   API_VERSION: '/api/v1',
   
   // Endpoints
@@ -29,6 +29,10 @@ export const API_CONFIG = {
 
 // Helper function to build full API URL
 export const getApiUrl = (endpoint: string): string => {
+  // If endpoint already starts with /api, don't add API_VERSION
+  if (endpoint.startsWith('/api')) {
+    return `${API_CONFIG.BASE_URL}${endpoint}`;
+  }
   return `${API_CONFIG.BASE_URL}${API_CONFIG.API_VERSION}${endpoint}`;
 };
 
@@ -52,10 +56,7 @@ export const apiRequest = async (
   };
 
   try {
-    console.log('Making API request to:', url);
     const response = await fetch(url, config);
-    
-    console.log('Response status:', response.status);
     
     if (!response.ok) {
       // If unauthorized, redirect to login
@@ -65,22 +66,24 @@ export const apiRequest = async (
         throw new Error('Unauthorized - please login again');
       }
       
-      const errorText = await response.text();
-      console.error('API Error Response:', errorText);
-      throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
+      // For validation errors, try to get the error details
+      if (response.status === 422) {
+        const errorData = await response.json();
+        const error = new Error(`Validation failed: ${response.status}`);
+        (error as any).response = { data: errorData, status: response.status };
+        throw error;
+      }
+      
+      throw new Error(`HTTP error! status: ${response.status}`);
     }
     
-    const responseText = await response.text();
-    console.log('Raw response:', responseText);
-    
-    if (!responseText) {
-      throw new Error('Empty response from server');
-    }
-    
-    const data = JSON.parse(responseText);
-    return data;
-  } catch (error) {
+    return await response.json();
+  } catch (error: any) {
     console.error('API request failed:', error);
+    // If it's already a structured error with response data, keep it
+    if (error.response) {
+      throw error;
+    }
     throw error;
   }
 };
