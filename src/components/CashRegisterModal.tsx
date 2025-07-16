@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -9,7 +9,6 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import {
   Select,
@@ -46,17 +45,27 @@ import type { CashRegisterEntry } from "@/data/mockData";
 import { format } from "date-fns";
 import { el } from "date-fns/locale";
 
-export function CashRegisterModal() {
+interface CashRegisterModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  type: 'income' | 'withdrawal';
+  onSuccess: () => void;
+}
+
+export function CashRegisterModal({ isOpen, onClose, type, onSuccess }: CashRegisterModalProps) {
   const { toast } = useToast();
-  const [isOpen, setIsOpen] = useState(false);
   const [entries, setEntries] = useState<CashRegisterEntry[]>(mockCashRegisterEntries);
   const [formData, setFormData] = useState({
-    type: 'income' as 'income' | 'withdrawal',
+    type: type,
     amount: '',
     description: '',
     category: '',
     paymentMethod: 'cash' as 'cash' | 'card' | 'transfer'
   });
+
+  useEffect(() => {
+    setFormData(prev => ({ ...prev, type: type }));
+  }, [type]);
 
   const incomeCategories = [
     'Package Payment',
@@ -119,12 +128,16 @@ export function CashRegisterModal() {
 
     // Reset form
     setFormData({
-      type: 'income',
+      type: type,
       amount: '',
       description: '',
       category: '',
       paymentMethod: 'cash'
     });
+
+    // Call onSuccess to refresh parent data
+    onSuccess();
+    onClose();
   };
 
   // Calculations
@@ -180,13 +193,7 @@ export function CashRegisterModal() {
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      <DialogTrigger asChild>
-        <Button variant="outline" size="sm">
-          <Wallet className="h-4 w-4 mr-2" />
-          Live Ταμείο
-        </Button>
-      </DialogTrigger>
+    <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-6xl">
         <DialogHeader>
           <DialogTitle>Live Ταμείο - Παρακολούθηση σε Πραγματικό Χρόνο</DialogTitle>

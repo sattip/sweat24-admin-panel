@@ -84,6 +84,7 @@ export function TrainersPage() {
     certifications: "",
     experience: "",
     bio: "",
+    image_url: "",
   });
 
   // Fetch trainers from API
@@ -91,8 +92,10 @@ export function TrainersPage() {
     const fetchTrainers = async () => {
       try {
         setIsLoading(true);
-        const response = await instructorsApi.getAll();
-        setTrainers(response.data || response);
+        const trainersData = await instructorsApi.getAll();
+        console.log('Trainers API response:', trainersData);
+        // Ensure trainersData is an array
+        setTrainers(Array.isArray(trainersData) ? trainersData : []);
       } catch (error) {
         console.error('Error fetching trainers:', error);
         toast({
@@ -108,7 +111,7 @@ export function TrainersPage() {
     fetchTrainers();
   }, [toast]);
 
-  const filteredTrainers = trainers.filter((trainer) => {
+  const filteredTrainers = Array.isArray(trainers) ? trainers.filter((trainer) => {
     let specialties = trainer.specialties || [];
     if (typeof specialties === 'string') {
       try {
@@ -119,13 +122,13 @@ export function TrainersPage() {
     }
     
     const matchesSearch = 
-      trainer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      specialties.some(s => s.toLowerCase().includes(searchTerm.toLowerCase()));
+      (trainer.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      specialties.some(s => (s || '').toLowerCase().includes(searchTerm.toLowerCase()));
     
     const matchesStatus = statusFilter === "all" || trainer.status === statusFilter;
     
     return matchesSearch && matchesStatus;
-  });
+  }) : [];
 
   const handleCreateTrainer = async () => {
     if (!formData.name || !formData.email) {
@@ -143,13 +146,13 @@ export function TrainersPage() {
         email: formData.email,
         phone: formData.phone,
         specialties: formData.specialties,
-        certifications: formData.certifications.split(",").map(c => c.trim()),
+        certifications: formData.certifications,
         experience: formData.experience,
         bio: formData.bio,
+        image_url: formData.image_url,
       };
 
-      const response = await instructorsApi.create(newTrainerData);
-      const newTrainer = response.data || response;
+      const newTrainer = await instructorsApi.create(newTrainerData);
       
       setTrainers([...trainers, newTrainer]);
       setIsDialogOpen(false);
@@ -179,6 +182,7 @@ export function TrainersPage() {
       certifications: "",
       experience: "",
       bio: "",
+      image_url: "",
     });
   };
 
@@ -202,6 +206,43 @@ export function TrainersPage() {
         ? prev.specialties.filter(s => s !== specialty)
         : [...prev.specialties, specialty]
     }));
+  };
+
+  const handleDeleteTrainer = async (trainerId: string, trainerName: string) => {
+    if (!confirm(`Είστε σίγουροι ότι θέλετε να διαγράψετε τον προπονητή ${trainerName}?`)) {
+      return;
+    }
+
+    try {
+      await instructorsApi.delete(trainerId);
+      setTrainers(trainers.filter(trainer => trainer.id !== trainerId));
+      toast({
+        title: "Επιτυχία!",
+        description: `Ο προπονητής ${trainerName} διαγράφηκε με επιτυχία.`,
+      });
+    } catch (error) {
+      console.error('Error deleting trainer:', error);
+      toast({
+        title: "Σφάλμα",
+        description: "Αποτυχία διαγραφής προπονητή. Παρακαλώ δοκιμάστε ξανά.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleEditTrainer = (trainer: any) => {
+    setSelectedTrainer(trainer);
+    setFormData({
+      name: trainer.name || "",
+      email: trainer.email || "",
+      phone: trainer.phone || "",
+      specialties: trainer.specialties || [],
+      certifications: trainer.certifications || "",
+      experience: trainer.experience || "",
+      bio: trainer.bio || "",
+      image_url: trainer.image_url || "",
+    });
+    setIsDialogOpen(true);
   };
 
   return (
@@ -300,6 +341,16 @@ export function TrainersPage() {
                         value={formData.certifications}
                         onChange={(e) => setFormData({...formData, certifications: e.target.value})}
                         placeholder="π.χ. NASM-CPT, CSCS, TRX (χωρισμένα με κόμμα)"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="image_url">URL Φωτογραφίας</Label>
+                      <Input
+                        id="image_url"
+                        type="url"
+                        value={formData.image_url}
+                        onChange={(e) => setFormData({...formData, image_url: e.target.value})}
+                        placeholder="https://example.com/photo.jpg"
                       />
                     </div>
                     <div>
@@ -488,7 +539,7 @@ export function TrainersPage() {
                             <TableCell>
                               <div className="flex items-center gap-3">
                                 <Avatar className="h-10 w-10">
-                                  <AvatarImage src={trainer.avatar || undefined} />
+                                  <AvatarImage src={trainer.image_url || trainer.avatar || undefined} />
                                   <AvatarFallback>{trainer.name.split(' ').map(n => n[0]).join('')}</AvatarFallback>
                                 </Avatar>
                                 <div>
@@ -534,15 +585,18 @@ export function TrainersPage() {
                             </TableCell>
                             <TableCell>
                               <div className="flex gap-1 justify-end">
-                                <Button variant="ghost" size="icon" title="Προβολή Προφίλ">
-                                  <Eye className="h-4 w-4" />
-                                </Button>
-                                <Button variant="ghost" size="icon" title="Επεξεργασία">
+                                <Button variant="ghost" size="icon" title="Επεξεργασία" onClick={() => handleEditTrainer(trainer)}>
                                   <Edit className="h-4 w-4" />
                                 </Button>
                                 <TimeTrackingModal instructorId={trainer.id} />
                                 <PayrollAgreementsModal instructorId={trainer.id} />
-                                <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" title="Διαγραφή">
+                                <Button 
+                                  variant="ghost" 
+                                  size="icon" 
+                                  className="text-destructive hover:text-destructive" 
+                                  title="Διαγραφή"
+                                  onClick={() => handleDeleteTrainer(trainer.id, trainer.name)}
+                                >
                                   <Trash2 className="h-4 w-4" />
                                 </Button>
                               </div>

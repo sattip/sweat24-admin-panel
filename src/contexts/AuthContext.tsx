@@ -1,10 +1,12 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { API_CONFIG } from '@/config/api';
 
 interface User {
   id: number;
   name: string;
   email: string;
   membership_type: string;
+  role: string;
 }
 
 interface AuthContextType {
@@ -43,7 +45,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const savedToken = localStorage.getItem('auth-token');
       if (savedToken) {
         try {
-          const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8001'}/api/v1/auth/me`, {
+          const response = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.API_VERSION}/auth/me`, {
             headers: {
               'Authorization': `Bearer ${savedToken}`,
               'Accept': 'application/json',
@@ -73,7 +75,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const login = async (email: string, password: string) => {
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8001'}/api/v1/auth/login`, {
+      const response = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.API_VERSION}/auth/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -102,7 +104,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const logout = async () => {
     try {
       if (token) {
-        await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8001'}/api/v1/auth/logout`, {
+        await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.API_VERSION}/auth/logout`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${token}`,

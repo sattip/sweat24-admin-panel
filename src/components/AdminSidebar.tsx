@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
 import {
   Grid2X2,
   Users,
@@ -13,6 +14,13 @@ import {
   ChevronRight,
   Euro,
   Activity,
+  CreditCard,
+  FileText,
+  TrendingUp,
+  Briefcase,
+  Gift,
+  Building2,
+  CalendarDays,
 } from "lucide-react";
 
 import {
@@ -28,7 +36,7 @@ import {
 } from "@/components/ui/sidebar";
 import Logo from "./Logo";
 
-const navigationItems = [
+const adminNavigationItems = [
   { title: "Πίνακας Ελέγχου", url: "/", icon: Grid2X2 },
   { title: "Πελάτες", url: "/users", icon: Users },
   { title: "Μαθήματα & Προγραμματισμός", url: "/classes", icon: Calendar },
@@ -36,7 +44,27 @@ const navigationItems = [
   { title: "Προπονητές", url: "/trainers", icon: User },
   { title: "Κατάστημα", url: "/store", icon: Package },
   { title: "Πακέτα", url: "/packages", icon: Package },
-  { title: "Οικονομικά & Αναφορές", url: "/finance", icon: Euro },
+  { title: "Ειδοποιήσεις", url: "/notifications", icon: Bell },
+  { title: "Πληρωμές & Δόσεις", url: "/payments", icon: CreditCard },
+  { title: "Ταμείο", url: "/cash-register", icon: Euro },
+  { title: "Έξοδα Επιχείρησης", url: "/expenses", icon: FileText },
+  { title: "Οικονομικές Αναφορές", url: "/reports", icon: TrendingUp },
+  { title: "Αξιολόγηση & Πρόοδος", url: "/assessment", icon: Activity },
+  { title: "Εξειδικευμένες Υπηρεσίες", url: "/specialized-services", icon: Briefcase },
+  { title: "Πρόγραμμα Παραπομπών", url: "/referral-program", icon: Gift },
+  { title: "Συνεργάτες", url: "/partners", icon: Building2 },
+  { title: "Εκδηλώσεις", url: "/events", icon: CalendarDays },
+  { title: "Ρυθμίσεις", url: "/settings", icon: Settings },
+];
+
+const trainerNavigationItems = [
+  { title: "Πίνακας Ελέγχου", url: "/", icon: Grid2X2 },
+  { title: "Πελάτες", url: "/users", icon: Users },
+  { title: "Μαθήματα & Προγραμματισμός", url: "/classes", icon: Calendar },
+  { title: "Κρατήσεις & Παρουσίες", url: "/bookings", icon: Book },
+  { title: "Πακέτα", url: "/packages", icon: Package },
+  { title: "Ειδοποιήσεις", url: "/notifications", icon: Bell },
+  { title: "Ταμείο", url: "/cash-register", icon: Euro },
   { title: "Αξιολόγηση & Πρόοδος", url: "/assessment", icon: Activity },
   { title: "Ρυθμίσεις", url: "/settings", icon: Settings },
 ];
@@ -44,8 +72,12 @@ const navigationItems = [
 export function AdminSidebar() {
   const { state, open } = useSidebar();
   const location = useLocation();
+  const { user } = useAuth();
   const currentPath = location.pathname;
   const collapsed = state === "collapsed";
+  
+  // Determine navigation items based on user role
+  const navigationItems = user?.role === 'trainer' ? trainerNavigationItems : adminNavigationItems;
 
   const isActive = (path: string) => {
     if (path === "/") {

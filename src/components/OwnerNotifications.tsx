@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -9,25 +9,75 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Bell, AlertTriangle, Info, CheckCircle } from "lucide-react";
-import { mockOwnerNotifications } from "@/data/mockData";
-import type { OwnerNotification } from "@/data/mockData";
+import { Bell, AlertTriangle, Info, CheckCircle, ShoppingCart, Package } from "lucide-react";
 import { format } from "date-fns";
 import { el } from "date-fns/locale";
+import { apiRequest } from "@/config/api";
+import { toast } from "sonner";
+import { useNavigate } from "react-router-dom";
+
+interface OwnerNotification {
+  id: string;
+  title: string;
+  message: string;
+  type: string;
+  priority: string;
+  is_read: boolean;
+  data?: any;
+  created_at: string;
+}
 
 export function OwnerNotifications() {
-  const [notifications, setNotifications] = useState<OwnerNotification[]>(mockOwnerNotifications);
+  const [notifications, setNotifications] = useState<OwnerNotification[]>([]);
+  const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
   
-  const unreadCount = notifications.filter(n => !n.isRead).length;
+  const unreadCount = notifications.filter(n => !n.is_read).length;
 
-  const markAsRead = (notificationId: string) => {
-    setNotifications(prev => 
-      prev.map(n => n.id === notificationId ? { ...n, isRead: true } : n)
-    );
+  useEffect(() => {
+    fetchNotifications();
+    // Fetch notifications every 30 seconds
+    const interval = setInterval(fetchNotifications, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const fetchNotifications = async () => {
+    try {
+      const result = await apiRequest('/owner-notifications');
+      
+      if (result.success && result.data) {
+        setNotifications(result.data.data || []);
+      }
+    } catch (error) {
+      console.error('Error fetching owner notifications:', error);
+    }
   };
 
-  const markAllAsRead = () => {
-    setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
+  const markAsRead = async (notificationId: string) => {
+    try {
+      await apiRequest(`/owner-notifications/${notificationId}/read`, {
+        method: 'POST'
+      });
+      
+      setNotifications(prev => 
+        prev.map(n => n.id === notificationId ? { ...n, is_read: true } : n)
+      );
+    } catch (error) {
+      toast.error('Σφάλμα κατά τη σήμανση της ειδοποίησης');
+    }
+  };
+
+  const markAllAsRead = async () => {
+    try {
+      await apiRequest('/owner-notifications/read-all', {
+        method: 'POST'
+      });
+      
+      setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
+      toast.success('Όλες οι ειδοποιήσεις σημειώθηκαν ως αναγνωσμένες');
+    } catch (error) {
+      toast.error('Σφάλμα κατά τη σήμανση των ειδοποιήσεων');
+    }
   };
 
   const getPriorityIcon = (priority: string) => {
@@ -39,8 +89,20 @@ export function OwnerNotifications() {
     }
   };
 
+  const getTypeIcon = (type: string) => {
+    switch (type) {
+      case 'order': return <ShoppingCart className="h-4 w-4 text-primary" />;
+      case 'order_ready': return <Package className="h-4 w-4 text-green-500" />;
+      case 'graceful_cancellation': return <AlertTriangle className="h-4 w-4 text-orange-500" />;
+      case 'package_extension': return <Info className="h-4 w-4 text-blue-500" />;
+      default: return <Bell className="h-4 w-4 text-gray-500" />;
+    }
+  };
+
   const getTypeLabel = (type: string) => {
     switch (type) {
+      case 'order': return 'Νέα Παραγγελία';
+      case 'order_ready': return 'Παραγγελία Έτοιμη';
       case 'graceful_cancellation': return 'Χαριστική Ακύρωση';
       case 'package_extension': return 'Επέκταση Πακέτου';
       default: return 'Γενική Ειδοποίηση';
@@ -82,18 +144,24 @@ export function OwnerNotifications() {
             <DropdownMenuItem
               key={notification.id}
               className={`flex flex-col items-start p-3 cursor-pointer ${
-                !notification.isRead ? 'bg-blue-50' : ''
+                !notification.is_read ? 'bg-blue-50' : ''
               }`}
-              onClick={() => markAsRead(notification.id)}
+              onClick={() => {
+                markAsRead(notification.id);
+                // Navigate to store page for order notifications
+                if (notification.type === 'order' || notification.type === 'order_ready') {
+                  navigate('/store');
+                }
+              }}
             >
               <div className="flex items-center gap-2 w-full">
-                {getPriorityIcon(notification.priority)}
+                {getTypeIcon(notification.type)}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
                     <p className="text-sm font-medium truncate">
                       {notification.title}
                     </p>
-                    {!notification.isRead && (
+                    {!notification.is_read && (
                       <div className="h-2 w-2 bg-blue-500 rounded-full" />
                     )}
                   </div>
@@ -105,7 +173,7 @@ export function OwnerNotifications() {
                       {getTypeLabel(notification.type)}
                     </span>
                     <span className="text-xs text-muted-foreground">
-                      {format(new Date(notification.timestamp), 'dd/MM HH:mm', { locale: el })}
+                      {format(new Date(notification.created_at), 'dd/MM HH:mm', { locale: el })}
                     </span>
                   </div>
                 </div>

@@ -21,6 +21,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DialogFooter,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -32,6 +33,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Calendar } from "@/components/ui/calendar";
+import MatrixViewCalendar from "@/components/MatrixViewCalendar";
 import {
   Popover,
   PopoverContent,
@@ -76,6 +78,10 @@ export function ClassesPage() {
   const [isCreating, setIsCreating] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date());
+  const [selectedSession, setSelectedSession] = useState<any>(null);
+  const [sessionDialogOpen, setSessionDialogOpen] = useState(false);
+  const [editingClass, setEditingClass] = useState<any>(null);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
     type: "",
@@ -99,8 +105,14 @@ export function ClassesPage() {
           instructorsApi.getAll()
         ]);
         
-        setClasses(classesResponse.data || classesResponse || []);
-        setInstructors(instructorsResponse.data || instructorsResponse || []);
+        const classesData = classesResponse.data || classesResponse || [];
+        const instructorsData = instructorsResponse.data || instructorsResponse || [];
+        
+        console.log('ClassesPage - Raw classes data:', classesData);
+        console.log('ClassesPage - Raw instructors data:', instructorsData);
+        
+        setClasses(classesData);
+        setInstructors(instructorsData);
       } catch (error) {
         console.error('Error fetching data:', error);
         toast({
@@ -124,6 +136,40 @@ export function ClassesPage() {
     cls => cls.date === format(selectedDate, "yyyy-MM-dd")
   );
 
+  const handleEditClass = (cls: any) => {
+    setEditingClass(cls);
+    setFormData({
+      name: cls.name || cls.class_type || "",
+      type: cls.type || "group",
+      instructor: cls.instructor || cls.trainer_id || "",
+      date: new Date(cls.date),
+      time: cls.time || cls.start_time || "",
+      duration: cls.duration || 60,
+      maxParticipants: cls.max_participants || cls.maxParticipants || 12,
+      location: cls.location || "Studio 1",
+      description: cls.description || "",
+    });
+    setIsEditDialogOpen(true);
+  };
+
+  const handleDeleteClass = async (classId: number) => {
+    try {
+      await classesApi.delete(classId.toString());
+      setClasses(classes.filter(c => c.id !== classId));
+      toast({
+        title: "Επιτυχία!",
+        description: "Το μάθημα διαγράφηκε με επιτυχία.",
+      });
+    } catch (error) {
+      console.error('Error deleting class:', error);
+      toast({
+        title: "Σφάλμα",
+        description: "Αποτυχία διαγραφής μαθήματος.",
+        variant: "destructive",
+      });
+    }
+  };
+
   const handleCreateClass = async () => {
     try {
       setIsCreating(true);
@@ -131,7 +177,7 @@ export function ClassesPage() {
       const newClassData = {
         name: formData.name,
         type: formData.type,
-        instructor_id: formData.instructor,
+        instructor: formData.instructor, // Changed from instructor_id to instructor
         date: format(formData.date, "yyyy-MM-dd"),
         time: formData.time,
         duration: formData.duration,
@@ -139,6 +185,8 @@ export function ClassesPage() {
         location: formData.location,
         description: formData.description,
       };
+      
+      console.log('Creating class with data:', newClassData);
 
       const response = await classesApi.create(newClassData);
       const newClass = response.data || response;
@@ -163,13 +211,92 @@ export function ClassesPage() {
         location: "",
         description: "",
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error creating class:', error);
+      // Check if we have validation errors
+      if (error.response?.data?.errors) {
+        const validationErrors = error.response.data.errors;
+        const errorMessages = Object.entries(validationErrors)
+          .map(([field, messages]) => `${field}: ${(messages as string[]).join(', ')}`)
+          .join('\n');
+        toast({
+          title: "Σφάλμα επικύρωσης",
+          description: errorMessages,
+          variant: "destructive",
+        });
+      } else if (error.response?.data?.message) {
+        toast({
+          title: "Σφάλμα",
+          description: error.response.data.message,
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Σφάλμα",
+          description: "Αποτυχία δημιουργίας μαθήματος. Παρακαλώ δοκιμάστε ξανά.",
+          variant: "destructive",
+        });
+      }
+    } finally {
+      setIsCreating(false);
+    }
+  };
+
+  const handleUpdateClass = async () => {
+    try {
+      setIsCreating(true);
+      
+      const updateData = {
+        name: formData.name,
+        type: formData.type,
+        instructor: formData.instructor, // Changed from instructor_id to instructor
+        date: format(formData.date, "yyyy-MM-dd"),
+        time: formData.time,
+        duration: formData.duration,
+        max_participants: formData.maxParticipants,
+        location: formData.location,
+        description: formData.description,
+      };
+
+      const response = await classesApi.update(editingClass.id.toString(), updateData);
+      const updatedClass = response.data || response;
+      
+      setClasses(classes.map(c => c.id === editingClass.id ? updatedClass : c));
+      setIsEditDialogOpen(false);
+      setEditingClass(null);
+
       toast({
-        title: "Σφάλμα",
-        description: "Αποτυχία δημιουργίας μαθήματος. Παρακαλώ δοκιμάστε ξανά.",
-        variant: "destructive",
+        title: "Επιτυχία!",
+        description: `Το μάθημα ${formData.name} ενημερώθηκε με επιτυχία.`,
       });
+
+      resetForm();
+    } catch (error: any) {
+      console.error('Error updating class:', error);
+      // Check if we have validation errors
+      if (error.response?.data?.errors) {
+        const validationErrors = error.response.data.errors;
+        const errorMessages = Object.entries(validationErrors)
+          .map(([field, messages]) => `${field}: ${(messages as string[]).join(', ')}`)
+          .join('\n');
+        toast({
+          title: "Σφάλμα επικύρωσης",
+          description: errorMessages,
+          variant: "destructive",
+        });
+      } else if (error.response?.data?.message) {
+        toast({
+          title: "Σφάλμα",
+          description: error.response.data.message,
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Σφάλμα",
+          description: "Αποτυχία ενημέρωσης μαθήματος. Παρακαλώ δοκιμάστε ξανά.",
+          variant: "destructive",
+        });
+      }
     } finally {
       setIsCreating(false);
     }
@@ -379,6 +506,184 @@ export function ClassesPage() {
                   </div>
                 </DialogContent>
               </Dialog>
+
+              {/* Edit Class Dialog */}
+              <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+                <DialogContent className="max-w-2xl">
+                  <DialogHeader>
+                    <DialogTitle>Επεξεργασία Μαθήματος</DialogTitle>
+                    <DialogDescription>
+                      Ενημερώστε τις πληροφορίες του μαθήματος
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="grid gap-4 py-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="edit-name">Όνομα Μαθήματος</Label>
+                        <Input
+                          id="edit-name"
+                          value={formData.name}
+                          onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                          placeholder="π.χ. Yoga Flow"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="edit-type">Τύπος</Label>
+                        <Select
+                          value={formData.type}
+                          onValueChange={(value) => setFormData({ ...formData, type: value })}
+                        >
+                          <SelectTrigger id="edit-type">
+                            <SelectValue placeholder="Επιλέξτε τύπο" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {classTypes.map((type) => (
+                              <SelectItem key={type.value} value={type.value}>
+                                {type.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="edit-instructor">Προπονητής</Label>
+                        <Select
+                          value={formData.instructor}
+                          onValueChange={(value) => setFormData({ ...formData, instructor: value })}
+                        >
+                          <SelectTrigger id="edit-instructor">
+                            <SelectValue placeholder="Επιλέξτε προπονητή" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {instructors.map((instructor) => (
+                              <SelectItem key={instructor.id} value={instructor.id}>
+                                {instructor.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="edit-date">Ημερομηνία</Label>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button
+                              id="edit-date"
+                              variant="outline"
+                              className={cn(
+                                "w-full justify-start text-left font-normal",
+                                !formData.date && "text-muted-foreground"
+                              )}
+                            >
+                              <CalendarIcon className="mr-2 h-4 w-4" />
+                              {formData.date ? format(formData.date, "PPP", { locale: el }) : "Επιλέξτε ημερομηνία"}
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0">
+                            <Calendar
+                              mode="single"
+                              selected={formData.date}
+                              onSelect={(date) => date && setFormData({ ...formData, date })}
+                              disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
+                              initialFocus
+                            />
+                          </PopoverContent>
+                        </Popover>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-3 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="edit-time">Ώρα</Label>
+                        <Select
+                          value={formData.time}
+                          onValueChange={(value) => setFormData({ ...formData, time: value })}
+                        >
+                          <SelectTrigger id="edit-time">
+                            <SelectValue placeholder="Επιλέξτε ώρα" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {timeSlots.map((time) => (
+                              <SelectItem key={time} value={time}>
+                                {time}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="edit-duration">Διάρκεια (λεπτά)</Label>
+                        <Input
+                          id="edit-duration"
+                          type="number"
+                          value={formData.duration}
+                          onChange={(e) => setFormData({ ...formData, duration: parseInt(e.target.value) })}
+                          min="15"
+                          max="120"
+                          step="15"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="edit-maxParticipants">Μέγ. Συμμετέχοντες</Label>
+                        <Input
+                          id="edit-maxParticipants"
+                          type="number"
+                          value={formData.maxParticipants}
+                          onChange={(e) => setFormData({ ...formData, maxParticipants: parseInt(e.target.value) })}
+                          min="1"
+                          max="50"
+                        />
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="edit-location">Τοποθεσία</Label>
+                      <Select
+                        value={formData.location}
+                        onValueChange={(value) => setFormData({ ...formData, location: value })}
+                      >
+                        <SelectTrigger id="edit-location">
+                          <SelectValue placeholder="Επιλέξτε τοποθεσία" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Studio 1">Studio 1</SelectItem>
+                          <SelectItem value="Studio 2">Studio 2</SelectItem>
+                          <SelectItem value="Outdoor">Εξωτερικός Χώρος</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="edit-description">Περιγραφή</Label>
+                      <Textarea
+                        id="edit-description"
+                        value={formData.description}
+                        onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                        placeholder="Προαιρετική περιγραφή του μαθήματος..."
+                        rows={3}
+                      />
+                    </div>
+                  </div>
+                  <div className="flex justify-end gap-2">
+                    <Button variant="outline" onClick={() => {
+                      setIsEditDialogOpen(false);
+                      setEditingClass(null);
+                      resetForm();
+                    }}>
+                      Ακύρωση
+                    </Button>
+                    <Button onClick={handleUpdateClass} disabled={isCreating}>
+                      {isCreating ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Ενημέρωση...
+                        </>
+                      ) : (
+                        "Ενημέρωση Μαθήματος"
+                      )}
+                    </Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
             </div>
 
             {/* Stats Cards */}
@@ -475,6 +780,27 @@ export function ClassesPage() {
               </Card>
             </div>
 
+            {/* Matrix View Calendar */}
+            <MatrixViewCalendar 
+              sessions={classes.map(cls => ({
+                id: cls.id,
+                trainer_id: typeof cls.instructor === 'string' ? parseInt(cls.instructor) : cls.instructor,
+                trainer_name: cls.trainer_name || instructors.find(i => i.id === cls.instructor)?.name || '',
+                class_type: cls.class_type || cls.name || cls.type, // Use class_type from API, fallback to name or type
+                type: cls.type, // Add the type field
+                start_time: cls.start_time || cls.time,
+                end_time: cls.end_time || cls.time, // API now provides this
+                date: cls.date ? format(cls.date, 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd'),
+                participants: cls.current_participants || cls.currentParticipants,
+                max_participants: cls.max_participants || cls.maxParticipants
+              }))}
+              trainers={instructors.map(i => ({ id: parseInt(i.id), name: i.name }))}
+              onSessionClick={(session) => {
+                setSelectedSession(session);
+                setSessionDialogOpen(true);
+              }}
+            />
+
             {/* Daily Schedule */}
             <div className="grid gap-6 lg:grid-cols-2">
               {/* Today's Classes */}
@@ -517,42 +843,6 @@ export function ClassesPage() {
                         </div>
                       ))
                     )}
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Calendar View */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Επιλογή Ημερομηνίας</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <Calendar
-                    mode="single"
-                    selected={selectedDate}
-                    onSelect={(date) => date && setSelectedDate(date)}
-                    className="rounded-md border"
-                  />
-                  <div className="mt-4">
-                    <h4 className="font-medium mb-2">
-                      Μαθήματα για {format(selectedDate, "dd/MM/yyyy", { locale: el })}
-                    </h4>
-                    <div className="space-y-2">
-                      {selectedDateClasses.length === 0 ? (
-                        <p className="text-muted-foreground text-sm">
-                          Δεν υπάρχουν μαθήματα για αυτή την ημερομηνία
-                        </p>
-                      ) : (
-                        selectedDateClasses.map((cls) => (
-                          <div key={cls.id} className="text-sm p-2 bg-muted rounded">
-                            <div className="font-medium">{cls.name}</div>
-                            <div className="text-muted-foreground">
-                              {cls.time} - {cls.instructor?.name || cls.instructor || 'N/A'}
-                            </div>
-                          </div>
-                        ))
-                      )}
-                    </div>
                   </div>
                 </CardContent>
               </Card>
@@ -611,10 +901,20 @@ export function ClassesPage() {
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center space-x-2">
-                            <Button size="sm" variant="ghost">
+                            <Button 
+                              size="sm" 
+                              variant="ghost"
+                              onClick={() => handleEditClass(cls)}
+                              title="Επεξεργασία"
+                            >
                               <Edit className="h-4 w-4" />
                             </Button>
-                            <Button size="sm" variant="ghost">
+                            <Button 
+                              size="sm" 
+                              variant="ghost"
+                              onClick={() => handleDeleteClass(cls.id)}
+                              title="Διαγραφή"
+                            >
                               <Trash2 className="h-4 w-4" />
                             </Button>
                           </div>
@@ -628,6 +928,67 @@ export function ClassesPage() {
           </main>
         </div>
       </div>
+
+      <Dialog open={sessionDialogOpen} onOpenChange={setSessionDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{selectedSession?.class_type}</DialogTitle>
+          </DialogHeader>
+          {selectedSession && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-sm text-muted-foreground">Προπονητής</Label>
+                  <p className="font-medium">{selectedSession.trainer_name}</p>
+                </div>
+                <div>
+                  <Label className="text-sm text-muted-foreground">Ημερομηνία</Label>
+                  <p className="font-medium">
+                    {format(new Date(selectedSession.date), 'EEEE, dd MMMM', { locale: el })}
+                  </p>
+                </div>
+                <div>
+                  <Label className="text-sm text-muted-foreground">Ώρα</Label>
+                  <p className="font-medium">
+                    {selectedSession.start_time} - {selectedSession.end_time}
+                  </p>
+                </div>
+                <div>
+                  <Label className="text-sm text-muted-foreground">Συμμετέχοντες</Label>
+                  <p className="font-medium">
+                    {selectedSession.current_participants || 0}/{selectedSession.max_participants || '∞'}
+                  </p>
+                </div>
+              </div>
+              {selectedSession.location && (
+                <div>
+                  <Label className="text-sm text-muted-foreground">Τοποθεσία</Label>
+                  <p className="font-medium">{selectedSession.location}</p>
+                </div>
+              )}
+              {selectedSession.description && (
+                <div>
+                  <Label className="text-sm text-muted-foreground">Περιγραφή</Label>
+                  <p className="text-sm">{selectedSession.description}</p>
+                </div>
+              )}
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSessionDialogOpen(false)}>
+              Κλείσιμο
+            </Button>
+            <Button
+              onClick={() => {
+                setSessionDialogOpen(false);
+                handleEditClass(selectedSession);
+              }}
+            >
+              Επεξεργασία
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </SidebarProvider>
   );
 }

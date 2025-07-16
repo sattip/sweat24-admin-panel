@@ -9,7 +9,6 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import {
   Select,
@@ -38,11 +37,13 @@ import { useLocalStorage } from "@/hooks/useLocalStorage";
 
 interface PaymentInstallmentsModalProps {
   customerId?: string;
+  isOpen: boolean;
+  onClose: () => void;
+  onSuccess: () => void;
 }
 
-export function PaymentInstallmentsModal({ customerId }: PaymentInstallmentsModalProps) {
+export function PaymentInstallmentsModal({ customerId, isOpen, onClose, onSuccess }: PaymentInstallmentsModalProps) {
   const { toast } = useToast();
-  const [isOpen, setIsOpen] = useState(false);
   const [installments, setInstallments] = useLocalStorage<PaymentInstallment[]>('payment-installments', mockPaymentInstallments);
   const [pricingAccess, setPricingAccess] = useLocalStorage<CustomerPricingAccess[]>('pricing-access', mockCustomerPricingAccess);
   const [formData, setFormData] = useState({
@@ -154,7 +155,8 @@ export function PaymentInstallmentsModal({ customerId }: PaymentInstallmentsModa
       notes: ''
     });
 
-    setIsOpen(false);
+    onSuccess();
+    onClose();
   };
 
   const handlePayInstallment = (installmentId: string, paymentMethod: 'cash' | 'card' | 'transfer') => {
@@ -214,13 +216,7 @@ export function PaymentInstallmentsModal({ customerId }: PaymentInstallmentsModa
   const totalPending = pendingSummary.reduce((sum, inst) => sum + inst.amount, 0);
 
   return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      <DialogTrigger asChild>
-        <Button variant="outline" size="sm">
-          <CreditCard className="h-4 w-4 mr-2" />
-          Διαχείριση Δόσεων
-        </Button>
-      </DialogTrigger>
+    <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-6xl">
         <DialogHeader>
           <DialogTitle>Διαχείριση Δόσεων Πληρωμής</DialogTitle>

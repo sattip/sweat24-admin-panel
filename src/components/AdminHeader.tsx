@@ -14,6 +14,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { OwnerNotifications } from "./OwnerNotifications";
 import { AdminSettingsModal } from "./AdminSettingsModal";
+import { NotificationBell } from "./NotificationBell";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/components/ui/use-toast";
 
@@ -59,6 +60,9 @@ export function AdminHeader() {
       </div>
 
       <div className="flex items-center gap-3" data-oid="b7x3koj">
+        {/* Ειδοποιήσεις Χρήστη */}
+        <NotificationBell />
+        
         {/* Ειδοποιήσεις Ιδιοκτήτη */}
         <OwnerNotifications />
 
@@ -100,6 +104,14 @@ export function AdminHeader() {
                 >
                   {user?.email || 'admin@sweat24.com'}
                 </span>
+                {user?.role && (
+                  <Badge 
+                    variant={user.role === 'admin' ? 'default' : 'secondary'} 
+                    className="text-xs mt-1"
+                  >
+                    {user.role === 'admin' ? 'Admin' : 'Trainer'}
+                  </Badge>
+                )}
               </div>
             </Button>
           </DropdownMenuTrigger>
@@ -116,7 +128,7 @@ export function AdminHeader() {
               onClick={() => setSettingsOpen(true)}
               className="text-popover-foreground hover:bg-accent hover:text-accent-foreground"
             >
-              Ρυθμίσεις Διαχειριστή
+              {user?.role === 'admin' ? 'Ρυθμίσεις Διαχειριστή' : 'Ρυθμίσεις Προπονητή'}
             </DropdownMenuItem>
             <DropdownMenuSeparator data-oid="a14:g8e" />
             <DropdownMenuItem

@@ -19,6 +19,9 @@ export const usersApi = {
     if (params?.status) queryParams.append('status', params.status);
     if (params?.page) queryParams.append('page', params.page.toString());
     
+    // Request all users without pagination for the admin panel
+    queryParams.append('no_pagination', 'true');
+    
     const endpoint = `${API_CONFIG.ENDPOINTS.USERS}${queryParams.toString() ? '?' + queryParams.toString() : ''}`;
     return apiRequest(endpoint);
   },
@@ -88,7 +91,10 @@ export const bookingsApi = {
     if (params?.instructor) queryParams.append('instructor', params.instructor);
     
     const endpoint = `${API_CONFIG.ENDPOINTS.BOOKINGS}${queryParams.toString() ? '?' + queryParams.toString() : ''}`;
-    return apiRequest(endpoint);
+    console.log('🔗 BookingsApi.getAll: Calling endpoint:', endpoint);
+    const result = await apiRequest(endpoint);
+    console.log('📦 BookingsApi.getAll: Received result:', result);
+    return result;
   },
 
   getById: async (id: string): Promise<Booking> => {
@@ -311,5 +317,115 @@ export const dashboardApi = {
     overdue_payments: number;
   }> => {
     return apiRequest(API_CONFIG.ENDPOINTS.DASHBOARD_STATS);
+  },
+  
+  getAll: async (): Promise<{
+    recentActivity?: any[];
+    stats?: any;
+  }> => {
+    return apiRequest('/api/v1/dashboard/activities');
+  },
+};
+
+// Notification API
+export const notificationApi = {
+  getAll: async (params?: { per_page?: number; page?: number }) => {
+    const queryParams = new URLSearchParams();
+    if (params?.per_page) queryParams.append('per_page', params.per_page.toString());
+    if (params?.page) queryParams.append('page', params.page.toString());
+    
+    const endpoint = `/notifications${queryParams.toString() ? '?' + queryParams.toString() : ''}`;
+    return apiRequest(endpoint);
+  },
+
+  getUserNotifications: async (params?: { per_page?: number }) => {
+    const queryParams = new URLSearchParams();
+    if (params?.per_page) queryParams.append('per_page', params.per_page.toString());
+    
+    const endpoint = `/notifications/user${queryParams.toString() ? '?' + queryParams.toString() : ''}`;
+    return apiRequest(endpoint);
+  },
+
+  getStatistics: async () => {
+    return apiRequest('/notifications/statistics');
+  },
+
+  markAsRead: async (notificationId: number) => {
+    return apiRequest(`/notifications/${notificationId}/read`, {
+      method: 'POST',
+    });
+  },
+
+  markAllAsRead: async () => {
+    return apiRequest('/notifications/read-all', {
+      method: 'POST',
+    });
+  },
+};
+
+// Chat API
+export const chatApi = {
+  getConversations: async (status?: string) => {
+    const endpoint = `/admin/chat/conversations${status ? `?status=${status}` : ''}`;
+    return apiRequest(endpoint);
+  },
+
+  sendMessage: async (conversationId: number, content: string) => {
+    return apiRequest('/admin/chat/messages', {
+      method: 'POST',
+      body: JSON.stringify({
+        conversation_id: conversationId,
+        content: content
+      })
+    });
+  },
+
+  markAsRead: async (conversationId: number) => {
+    return apiRequest(`/admin/chat/conversations/${conversationId}/read`, {
+      method: 'PUT'
+    });
+  },
+
+  updateStatus: async (conversationId: number, status: string) => {
+    return apiRequest(`/admin/chat/conversations/${conversationId}/status`, {
+      method: 'PUT',
+      body: JSON.stringify({ status })
+    });
+  }
+};
+
+// Generic API service for backward compatibility
+export const apiService = {
+  get: async (endpoint: string, options?: { params?: any }) => {
+    let url = endpoint;
+    if (options?.params) {
+      const queryParams = new URLSearchParams();
+      Object.keys(options.params).forEach(key => {
+        queryParams.append(key, options.params[key].toString());
+      });
+      url += (url.includes('?') ? '&' : '?') + queryParams.toString();
+    }
+    const response = await apiRequest(url);
+    return { data: response };
+  },
+
+  post: async (endpoint: string, data?: any) => {
+    return apiRequest(endpoint, {
+      method: 'POST',
+      body: data ? JSON.stringify(data) : undefined,
+    });
+  },
+
+  put: async (endpoint: string, data?: any) => {
+    return apiRequest(endpoint, {
+      method: 'PUT',
+      body: data ? JSON.stringify(data) : undefined,
+    });
+  },
+
+  delete: async (endpoint: string) => {
+    return apiRequest(endpoint, {
+      method: 'DELETE',
+    });
   },
 };

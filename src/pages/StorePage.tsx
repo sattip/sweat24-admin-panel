@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { AdminSidebar } from "@/components/AdminSidebar";
 import { AdminHeader } from "@/components/AdminHeader";
@@ -46,6 +46,8 @@ import {
   Eye,
   Archive,
 } from "lucide-react";
+import { toast } from "sonner";
+import { API_ENDPOINTS, apiRequest } from "@/config/api";
 
 // Mock data για προϊόντα
 const mockProducts = [

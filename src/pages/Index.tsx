@@ -5,8 +5,9 @@ import { AdminHeader } from "@/components/AdminHeader";
 import { DashboardStats } from "@/components/DashboardStats";
 import { RecentActivity } from "@/components/RecentActivity";
 import { QuickActions } from "@/components/QuickActions";
-import { dashboardApi, classesApi, usersApi } from "@/services/api";
+import { dashboardApi, classesApi, instructorsApi } from "@/services/api";
 import { Loader2 } from "lucide-react";
+import MatrixViewCalendar from "@/components/MatrixViewCalendar";
 
 const Index = () => {
   const [stats, setStats] = useState({
@@ -15,14 +16,17 @@ const Index = () => {
     satisfactionRate: 94
   });
   const [isLoading, setIsLoading] = useState(true);
+  const [classes, setClasses] = useState([]);
+  const [instructors, setInstructors] = useState([]);
 
   useEffect(() => {
     const fetchWelcomeStats = async () => {
       try {
         setIsLoading(true);
-        const [dashboardResponse, classesResponse] = await Promise.all([
+        const [dashboardResponse, classesResponse, instructorsResponse] = await Promise.all([
           dashboardApi.getStats(),
-          classesApi.getAll()
+          classesApi.getAll(),
+          instructorsApi.getAll()
         ]);
         
         // Calculate weekly classes (this week)
@@ -38,6 +42,15 @@ const Index = () => {
           weeklyClasses: weeklyClasses.length,
           satisfactionRate: 94 // Keep static for now
         });
+        
+        const classesData = classesResponse.data || classesResponse || [];
+        const instructorsData = instructorsResponse.data || instructorsResponse || [];
+        
+        console.log('Dashboard - Classes loaded:', classesData);
+        console.log('Dashboard - Instructors loaded:', instructorsData);
+        
+        setClasses(classesData);
+        setInstructors(instructorsData);
       } catch (error) {
         console.error('Error fetching welcome stats:', error);
         // Keep default values on error
@@ -115,6 +128,27 @@ const Index = () => {
               <RecentActivity data-oid="_ro:owf" />
               <QuickActions data-oid="d7pampn" />
             </div>
+
+            {/* Matrix View Calendar */}
+            {classes.length > 0 && instructors.length > 0 && (
+              <MatrixViewCalendar 
+                sessions={classes.map(cls => ({
+                  id: cls.id,
+                  trainer_id: typeof cls.instructor === 'string' ? parseInt(cls.instructor) : cls.instructor,
+                  trainer_name: cls.trainer_name || instructors.find(i => i.id === cls.instructor)?.name || '',
+                  class_type: cls.class_type || cls.name || cls.type,
+                  start_time: cls.start_time || cls.time,
+                  end_time: cls.end_time || cls.time,
+                  date: cls.date ? (typeof cls.date === 'string' ? cls.date : new Date(cls.date).toISOString().split('T')[0]) : new Date().toISOString().split('T')[0],
+                  participants: cls.current_participants || cls.currentParticipants,
+                  max_participants: cls.max_participants || cls.maxParticipants
+                }))}
+                trainers={instructors.map(i => ({ id: typeof i.id === 'string' ? parseInt(i.id) : i.id, name: i.name }))}
+                onSessionClick={(session) => {
+                  console.log('Session clicked:', session);
+                }}
+              />
+            )}
           </main>
         </div>
       </div>
