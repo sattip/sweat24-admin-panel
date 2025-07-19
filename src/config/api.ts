@@ -1,7 +1,7 @@
 // API Configuration for SWEAT24 Admin Panel
 console.log('Environment API URL:', import.meta.env.VITE_API_URL);
 export const API_CONFIG = {
-  BASE_URL: import.meta.env.VITE_API_URL || 'http://localhost:8080',
+  BASE_URL: 'https://sweat93laravel.obs.com.gr',
   API_VERSION: '/api/v1',
   
   // Endpoints
