@@ -392,9 +392,9 @@ export function TrainersPage() {
                     </div>
                   ) : (
                     <>
-                      <div className="text-2xl font-bold">{trainers.length}</div>
+                      <div className="text-2xl font-bold">{Array.isArray(trainers) ? trainers.length : 0}</div>
                       <p className="text-xs text-muted-foreground">
-                        {trainers.filter(t => t.status === 'active').length} ενεργοί
+                        {Array.isArray(trainers) ? trainers.filter(t => t && t.status === 'active').length : 0} ενεργοί
                       </p>
                     </>
                   )}
@@ -414,7 +414,7 @@ export function TrainersPage() {
                   ) : (
                     <>
                       <div className="text-2xl font-bold">
-                        {trainers.reduce((sum, t) => sum + (t.weekly_hours || t.work_hours || 0), 0)}
+                        {Array.isArray(trainers) ? trainers.reduce((sum, t) => sum + (t && (t.weekly_hours || t.work_hours) || 0), 0) : 0}
                       </div>
                       <p className="text-xs text-muted-foreground">
                         συνολικές ώρες αυτή την εβδομάδα
@@ -437,7 +437,7 @@ export function TrainersPage() {
                   ) : (
                     <>
                       <div className="text-2xl font-bold">
-                        {trainers.reduce((sum, t) => sum + (t.monthly_classes || t.classes_count || 0), 0)}
+                        {Array.isArray(trainers) ? trainers.reduce((sum, t) => sum + (t && (t.monthly_classes || t.classes_count) || 0), 0) : 0}
                       </div>
                       <p className="text-xs text-muted-foreground">
                         συνολικά μαθήματα αυτό το μήνα
@@ -460,8 +460,8 @@ export function TrainersPage() {
                   ) : (
                     <>
                       <div className="text-2xl font-bold">
-                        {trainers.length > 0 ? 
-                          (trainers.reduce((sum, t) => sum + (t.rating || 0), 0) / trainers.length).toFixed(1) : 
+                        {Array.isArray(trainers) && trainers.length > 0 ? 
+                          (trainers.reduce((sum, t) => sum + (t && t.rating || 0), 0) / trainers.length).toFixed(1) : 
                           '0.0'
                         }
                       </div>
@@ -534,20 +534,45 @@ export function TrainersPage() {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {filteredTrainers.map((trainer) => (
-                          <TableRow key={trainer.id} className="hover:bg-muted/50">
-                            <TableCell>
-                              <div className="flex items-center gap-3">
-                                <Avatar className="h-10 w-10">
-                                  <AvatarImage src={trainer.image_url || trainer.avatar || undefined} />
-                                  <AvatarFallback>{trainer.name.split(' ').map(n => n[0]).join('')}</AvatarFallback>
-                                </Avatar>
-                                <div>
-                                  <div className="font-medium">{trainer.name}</div>
-                                  <div className="text-muted-foreground text-sm">{trainer.email}</div>
-                                </div>
+                        {isLoading ? (
+                          <TableRow>
+                            <TableCell colSpan={7} className="text-center py-8">
+                              <div className="flex items-center justify-center">
+                                <Loader2 className="h-8 w-8 animate-spin mr-2" />
+                                <span className="text-muted-foreground">Φόρτωση προπονητών...</span>
                               </div>
                             </TableCell>
+                          </TableRow>
+                        ) : filteredTrainers.length === 0 ? (
+                          <TableRow>
+                            <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                              <div className="flex flex-col items-center gap-2">
+                                <User className="h-12 w-12 text-muted-foreground/50" />
+                                <span className="text-lg font-medium">Δεν υπάρχουν καταχωρημένοι προπονητές</span>
+                                <span className="text-sm">Προσθέστε τον πρώτο προπονητή για να ξεκινήσετε</span>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ) : (
+                          filteredTrainers.map((trainer) => (
+                            <TableRow key={trainer.id} className="hover:bg-muted/50">
+                              <TableCell>
+                                <div className="flex items-center gap-3">
+                                  <Avatar className="h-10 w-10">
+                                    <AvatarImage src={trainer.image_url || trainer.avatar || undefined} />
+                                    <AvatarFallback>
+                                      {trainer.name && trainer.name.split ? 
+                                        trainer.name.split(' ').map(n => n[0] || '').join('').toUpperCase() || 'TR' :
+                                        'TR'
+                                      }
+                                    </AvatarFallback>
+                                  </Avatar>
+                                  <div>
+                                    <div className="font-medium">{trainer.name || 'Άγνωστο Όνομα'}</div>
+                                    <div className="text-muted-foreground text-sm">{trainer.email || 'Χωρίς email'}</div>
+                                  </div>
+                                </div>
+                              </TableCell>
                             <TableCell>
                               <div className="flex flex-wrap gap-1">
                                 {(() => {
@@ -602,7 +627,7 @@ export function TrainersPage() {
                               </div>
                             </TableCell>
                           </TableRow>
-                        ))}
+                        )))}
                       </TableBody>
                     </Table>
                   </CardContent>
@@ -702,7 +727,27 @@ export function TrainersPage() {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {filteredTrainers.map((trainer) => {
+                        {isLoading ? (
+                          <TableRow>
+                            <TableCell colSpan={8} className="text-center py-8">
+                              <div className="flex items-center justify-center">
+                                <Loader2 className="h-8 w-8 animate-spin mr-2" />
+                                <span className="text-muted-foreground">Φόρτωση στοιχείων μισθοδοσίας...</span>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ) : filteredTrainers.length === 0 ? (
+                          <TableRow>
+                            <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                              <div className="flex flex-col items-center gap-2">
+                                <DollarSign className="h-12 w-12 text-muted-foreground/50" />
+                                <span className="text-lg font-medium">Δεν υπάρχουν στοιχεία μισθοδοσίας</span>
+                                <span className="text-sm">Προσθέστε προπονητές για να δείτε στοιχεία μισθοδοσίας</span>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ) : (
+                          filteredTrainers.map((trainer) => {
                           const totalRevenue = filteredTrainers.reduce((sum, t) => sum + (t.total_revenue || 0), 0);
                           const revenuePercentage = totalRevenue > 0 ? (((trainer.total_revenue || 0) / totalRevenue) * 100).toFixed(1) : '0.0';
                           const avgRevenuePerSession = (trainer.completed_sessions || 0) > 0 ? ((trainer.total_revenue || 0) / (trainer.completed_sessions || 1)).toFixed(1) : '0.0';
@@ -781,7 +826,7 @@ export function TrainersPage() {
                               </TableCell>
                             </TableRow>
                           );
-                        })}
+                        }))}
                       </TableBody>
                     </Table>
                   </CardContent>
@@ -813,7 +858,7 @@ export function TrainersPage() {
                         <div className="flex justify-between">
                           <span className="text-sm text-muted-foreground">Συνολικές ώρες εβδομάδας:</span>
                           <span className="font-medium">
-                            {trainers.reduce((sum, trainer) => sum + (trainer.weekly_hours || 0), 0)}h
+                            {Array.isArray(trainers) ? trainers.reduce((sum, trainer) => sum + (trainer && trainer.weekly_hours || 0), 0) : 0}h
                           </span>
                         </div>
                       </div>

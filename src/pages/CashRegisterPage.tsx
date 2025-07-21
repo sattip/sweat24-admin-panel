@@ -111,7 +111,7 @@ const CashRegisterPage = () => {
   };
 
   const filteredEntries = entries.filter(entry => {
-    let matchesType = typeFilter === 'all' || entry.type === typeFilter;
+    const matchesType = typeFilter === 'all' || entry.type === typeFilter;
     
     let matchesDate = true;
     const entryDate = new Date(entry.timestamp);
@@ -128,11 +128,12 @@ const CashRegisterPage = () => {
         case 'today':
           matchesDate = entryDate.toDateString() === today.toDateString();
           break;
-        case 'week':
+        case 'week': {
           const weekAgo = new Date();
           weekAgo.setDate(weekAgo.getDate() - 7);
           matchesDate = entryDate >= weekAgo;
           break;
+        }
         case 'month':
           matchesDate = entryDate.getMonth() === today.getMonth() && 
                        entryDate.getFullYear() === today.getFullYear();

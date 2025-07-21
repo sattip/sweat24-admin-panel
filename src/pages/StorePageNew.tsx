@@ -196,7 +196,7 @@ export function StorePageNew() {
 
     try {
       // Use the image URL from the form
-      let imageUrl = formData.image_url || editingProduct?.image_url || "https://images.unsplash.com/photo-1582562124811-c09040d0a901";
+      const imageUrl = formData.image_url || editingProduct?.image_url || "https://images.unsplash.com/photo-1582562124811-c09040d0a901";
 
       const productData = {
         name: formData.name,

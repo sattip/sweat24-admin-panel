@@ -139,11 +139,12 @@ const ExpensesPage = () => {
       case 'today':
         matchesDate = expenseDate.toDateString() === today.toDateString();
         break;
-      case 'week':
+      case 'week': {
         const weekAgo = new Date();
         weekAgo.setDate(weekAgo.getDate() - 7);
         matchesDate = expenseDate >= weekAgo;
         break;
+      }
       case 'month':
         matchesDate = expenseDate.getMonth() === today.getMonth() && 
                      expenseDate.getFullYear() === today.getFullYear();

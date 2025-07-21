@@ -320,8 +320,19 @@ export const dashboardApi = {
   },
   
   getAll: async (): Promise<{
-    recentActivity?: any[];
-    stats?: any;
+    recentActivity?: Array<{
+      id: string;
+      type: string;
+      description: string;
+      timestamp: string;
+      icon?: string;
+    }>;
+    stats?: {
+      total_members?: number;
+      active_members?: number;
+      total_revenue?: number;
+      monthly_revenue?: number;
+    };
   }> => {
     return apiRequest('/api/v1/dashboard/activities');
   },
@@ -396,7 +407,7 @@ export const chatApi = {
 
 // Generic API service for backward compatibility
 export const apiService = {
-  get: async (endpoint: string, options?: { params?: any }) => {
+  get: async (endpoint: string, options?: { params?: Record<string, unknown> }) => {
     let url = endpoint;
     if (options?.params) {
       const queryParams = new URLSearchParams();
@@ -409,14 +420,14 @@ export const apiService = {
     return { data: response };
   },
 
-  post: async (endpoint: string, data?: any) => {
+  post: async (endpoint: string, data?: unknown) => {
     return apiRequest(endpoint, {
       method: 'POST',
       body: data ? JSON.stringify(data) : undefined,
     });
   },
 
-  put: async (endpoint: string, data?: any) => {
+  put: async (endpoint: string, data?: unknown) => {
     return apiRequest(endpoint, {
       method: 'PUT',
       body: data ? JSON.stringify(data) : undefined,

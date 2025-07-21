@@ -37,10 +37,10 @@ export const getApiUrl = (endpoint: string): string => {
 };
 
 // Helper function for API requests with error handling
-export const apiRequest = async (
+export const apiRequest = async <T = unknown>(
   endpoint: string,
   options: RequestInit = {}
-): Promise<any> => {
+): Promise<T> => {
   const url = getApiUrl(endpoint);
   
   // Get auth token from localStorage
@@ -69,8 +69,10 @@ export const apiRequest = async (
       // For validation errors, try to get the error details
       if (response.status === 422) {
         const errorData = await response.json();
-        const error = new Error(`Validation failed: ${response.status}`);
-        (error as any).response = { data: errorData, status: response.status };
+        const error = new Error(`Validation failed: ${response.status}`) as Error & {
+          response: { data: unknown; status: number };
+        };
+        error.response = { data: errorData, status: response.status };
         throw error;
       }
       
@@ -78,10 +80,10 @@ export const apiRequest = async (
     }
     
     return await response.json();
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('API request failed:', error);
     // If it's already a structured error with response data, keep it
-    if (error.response) {
+    if (error && typeof error === 'object' && 'response' in error) {
       throw error;
     }
     throw error;
