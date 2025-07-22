@@ -46,6 +46,16 @@ export const apiRequest = async <T = unknown>(
   // Get auth token from localStorage
   const token = localStorage.getItem('auth-token');
   
+  // Debug logging for booking requests
+  if (endpoint.includes('booking-requests')) {
+    console.log('🔍 API Request Debug:', {
+      endpoint,
+      url,
+      hasToken: !!token,
+      tokenPreview: token ? `${token.substring(0, 10)}...` : 'NO TOKEN'
+    });
+  }
+  
   const config: RequestInit = {
     ...options,
     headers: {

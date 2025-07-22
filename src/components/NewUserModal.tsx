@@ -95,7 +95,8 @@ export function NewUserModal({
         document_type: 'terms_and_conditions',
         document_version: '1.0',
         referral_source: referralSource,
-        referral_name: referralName
+        referral_name: referralName,
+        status: 'pending_approval' as const  // Νέοι χρήστες χρειάζονται έγκριση
       };
 
       const createdUser = await usersApi.create(newUserData);

@@ -49,6 +49,18 @@ export const usersApi = {
       method: 'DELETE',
     });
   },
+
+  approve: async (id: string): Promise<{ message: string; user?: User }> => {
+    return apiRequest(`/api/v1/admin/users/${id}/approve`, {
+      method: 'POST',
+    });
+  },
+
+  reject: async (id: string): Promise<{ message: string }> => {
+    return apiRequest(`/api/v1/admin/users/${id}/reject`, {
+      method: 'POST',
+    });
+  },
 };
 
 // Packages API
@@ -372,6 +384,53 @@ export const notificationApi = {
       method: 'POST',
     });
   },
+};
+
+export const bookingRequestsApi = {
+  getAll: async (): Promise<{
+    data?: Array<{
+      id: string;
+      user_id: string;
+      customer_name: string;
+      customer_email: string;
+      customer_phone?: string;
+      type: 'ems' | 'personal';
+      preferred_dates?: string[];
+      preferred_times?: string[];
+      message?: string;
+      status: 'pending' | 'confirmed' | 'rejected';
+      rejection_reason?: string;
+      created_at: string;
+      user?: User;
+    }>;
+  }> => {
+    console.log('🔍 Fetching booking requests from:', '/api/v1/admin/booking-requests');
+    console.log('🔑 Auth token exists:', !!localStorage.getItem('auth-token'));
+    
+    // Debug alert to ensure we reach this point
+    if (!window.bookingRequestsApiCalled) {
+      window.bookingRequestsApiCalled = true;
+      console.warn('🚨 BOOKING REQUESTS API CALLED - Check network tab!');
+    }
+    
+    return apiRequest('/api/v1/admin/booking-requests');
+  },
+
+  confirm: async (id: string, data: { date: string; time: string; instructor_id?: string }): Promise<{ message: string; booking?: any }> => {
+    console.log('✅ Confirming booking request:', id, data);
+    return apiRequest(`/api/v1/admin/booking-requests/${id}/confirm`, {
+      method: 'POST',
+      body: JSON.stringify(data)
+    });
+  },
+
+  reject: async (id: string, data: { reason: string }): Promise<{ message: string }> => {
+    console.log('❌ Rejecting booking request:', id, data);
+    return apiRequest(`/api/v1/admin/booking-requests/${id}/reject`, {
+      method: 'POST',
+      body: JSON.stringify(data)
+    });
+  }
 };
 
 // Chat API

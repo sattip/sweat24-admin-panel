@@ -1,0 +1,13 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Check Environment</title>
+</head>
+<body>
+    <h1>Environment Check</h1>
+    <script type="module">
+        console.log('VITE_API_URL:', import.meta.env.VITE_API_URL);
+        document.body.innerHTML += `<p>VITE_API_URL: ${import.meta.env.VITE_API_URL || 'NOT SET'}</p>`;
+    </script>
+</body>
+</html>

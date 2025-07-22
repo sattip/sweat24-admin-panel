@@ -26,7 +26,7 @@ export type User = {
   joinDate: string;
   remainingSessions: number;
   totalSessions: number;
-  status: "active" | "inactive" | "expired";
+  status: "active" | "inactive" | "expired" | "pending_approval";
   lastVisit: string;
   medicalHistory: string;
   avatar: string | null;

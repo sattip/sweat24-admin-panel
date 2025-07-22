@@ -5,6 +5,7 @@ import {
   Eye,
   Edit,
   Trash2,
+  Clock,
 } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { Link } from "react-router-dom";
@@ -94,6 +95,12 @@ export function UsersPage() {
       case "active": return <Badge variant="default" className="bg-green-100 text-green-800 hover:bg-green-200">Ενεργός</Badge>;
       case "expired": return <Badge variant="destructive">Έληξε</Badge>;
       case "inactive": return <Badge variant="secondary">Ανενεργός</Badge>;
+      case "pending_approval": return (
+        <Badge className="bg-yellow-100 text-yellow-800 border-yellow-200">
+          <Clock className="h-3 w-3 mr-1" />
+          Εκκρεμεί Έγκριση
+        </Badge>
+      );
       default: return <Badge variant="outline">{status}</Badge>;
     }
   };

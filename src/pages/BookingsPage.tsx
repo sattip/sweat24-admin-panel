@@ -46,7 +46,7 @@ import {
 import { format, parseISO } from "date-fns";
 import { el } from "date-fns/locale";
 import { useToast } from "@/components/ui/use-toast";
-import { bookingsApi, usersApi, classesApi, instructorsApi } from "@/services/api";
+import { bookingsApi, usersApi, classesApi, instructorsApi, bookingRequestsApi } from "@/services/api";
 import type { Booking, User as UserType, Class, Instructor } from "@/data/mockData";
 import { notifyGracefulCancellation } from "@/utils/notifications";
 
@@ -94,6 +94,7 @@ export function BookingsPage() {
   const [users, setUsers] = useState<any[]>([]);
   const [classes, setClasses] = useState<any[]>([]);
   const [instructors, setInstructors] = useState<any[]>([]);
+  const [bookingRequests, setBookingRequests] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isCreating, setIsCreating] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
@@ -101,6 +102,8 @@ export function BookingsPage() {
   const [selectedDate, setSelectedDate] = useState("all");
   
   const [openDialog, setOpenDialog] = useState<DialogType>(null);
+  const [confirmDialog, setConfirmDialog] = useState<{open: boolean; request: any | null}>({open: false, request: null});
+  const [rejectDialog, setRejectDialog] = useState<{open: boolean; request: any | null}>({open: false, request: null});
   
   // State for transfer
   const [transferTargetUser, setTransferTargetUser] = useState<string | null>(null);
@@ -118,6 +121,16 @@ export function BookingsPage() {
     type: 'group'
   });
 
+  // State for confirmation
+  const [confirmData, setConfirmData] = useState({
+    date: '',
+    time: '',
+    instructor_id: ''
+  });
+
+  // State for rejection
+  const [rejectReason, setRejectReason] = useState('');
+
   // Fetch data on component mount
   useEffect(() => {
     const fetchData = async () => {
@@ -125,18 +138,43 @@ export function BookingsPage() {
         setIsLoading(true);
         console.log('🔄 BookingsPage: Starting data fetch...');
         
-        const [bookingsResponse, usersResponse, classesResponse, instructorsResponse] = await Promise.all([
+        // Debug: Test booking requests API separately
+        try {
+          console.log('🔍 TESTING booking requests API...');
+          const testResult = await bookingRequestsApi.getAll();
+          console.log('✅ Booking requests test SUCCESS:', testResult);
+        } catch (testError) {
+          console.error('❌ Booking requests test FAILED:', testError);
+          // Show error in UI
+          toast({
+            title: "Σφάλμα Αιτημάτων Ραντεβού",
+            description: `API Error: ${testError instanceof Error ? testError.message : 'Unknown error'}`,
+            variant: "destructive",
+          });
+        }
+        
+        const [bookingsResponse, usersResponse, classesResponse, instructorsResponse, bookingRequestsResponse] = await Promise.all([
           bookingsApi.getAll(),
           usersApi.getAll(),
           classesApi.getAll(),
-          instructorsApi.getAll()
+          instructorsApi.getAll(),
+          bookingRequestsApi.getAll().catch(error => {
+            console.error('❌ Booking requests API error:', error);
+            toast({
+              title: "Σφάλμα Αιτημάτων Ραντεβού", 
+              description: `Δεν ήταν δυνατή η φόρτωση των αιτημάτων: ${error instanceof Error ? error.message : 'Unknown error'}`,
+              variant: "destructive",
+            });
+            return { data: [] }; // Return empty array to prevent crash
+          })
         ]);
         
         console.log('📥 BookingsPage: Raw API responses:', {
           bookingsResponse,
           usersResponse,
           classesResponse,
-          instructorsResponse
+          instructorsResponse,
+          bookingRequestsResponse
         });
         
         // Handle both wrapped and unwrapped responses
@@ -144,19 +182,42 @@ export function BookingsPage() {
         const usersData = Array.isArray(usersResponse) ? usersResponse : (usersResponse.data || []);
         const classesData = Array.isArray(classesResponse) ? classesResponse : (classesResponse.data || []);
         const instructorsData = Array.isArray(instructorsResponse) ? instructorsResponse : (instructorsResponse.data || []);
+        // Handle paginated response from Laravel
+        let bookingRequestsData = [];
+        if (Array.isArray(bookingRequestsResponse)) {
+          bookingRequestsData = bookingRequestsResponse;
+        } else if (bookingRequestsResponse && Array.isArray(bookingRequestsResponse.data)) {
+          bookingRequestsData = bookingRequestsResponse.data;
+        }
+            
+        console.log('🔍 Booking Requests Raw Response:', bookingRequestsResponse);
+        console.log('📊 Booking Requests Processed Data:', bookingRequestsData);
         
         console.log('✅ BookingsPage: Processed data:', {
           bookingsCount: bookingsData.length,
           bookingsData,
           usersCount: usersData.length,
           classesCount: classesData.length,
-          instructorsCount: instructorsData.length
+          instructorsCount: instructorsData.length,
+          bookingRequestsCount: bookingRequestsData.length
         });
         
         setBookings(bookingsData);
         setUsers(usersData);
         setClasses(classesData);
         setInstructors(instructorsData);
+        setBookingRequests(bookingRequestsData);
+        
+        // Force debug output that won't be minified
+        if (bookingRequestsData.length > 0) {
+          (window as any).__DEBUG_BOOKING_REQUESTS = bookingRequestsData;
+          console.warn('✅ BOOKING REQUESTS LOADED:', bookingRequestsData.length, 'items');
+          alert(`✅ LOADED ${bookingRequestsData.length} BOOKING REQUESTS!`);
+        } else {
+          console.warn('⚠️ NO BOOKING REQUESTS FOUND - checking response...');
+          console.warn('Raw response:', bookingRequestsResponse);
+          alert('⚠️ NO BOOKING REQUESTS FOUND!');
+        }
       } catch (error) {
         console.error('❌ BookingsPage: Error fetching data:', error);
         toast({
@@ -311,6 +372,81 @@ export function BookingsPage() {
     }
   };
 
+  const handleConfirmRequest = async () => {
+    if (!confirmDialog.request || !confirmData.date || !confirmData.time) {
+      toast({
+        title: "Σφάλμα",
+        description: "Παρακαλώ συμπληρώστε ημερομηνία και ώρα.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const response = await bookingRequestsApi.confirm(confirmDialog.request.id, confirmData);
+      
+      // Update the request in the list
+      setBookingRequests(bookingRequests.map(req => 
+        req.id === confirmDialog.request.id ? {...req, status: 'confirmed'} : req
+      ));
+
+      // Refresh bookings list to show the new booking
+      const bookingsResponse = await bookingsApi.getAll();
+      const bookingsData = Array.isArray(bookingsResponse) ? bookingsResponse : (bookingsResponse.data || []);
+      setBookings(bookingsData);
+
+      toast({
+        title: "Επιτυχία!",
+        description: response.message || "Το ραντεβού οριστικοποιήθηκε επιτυχώς.",
+      });
+
+      setConfirmDialog({open: false, request: null});
+      setConfirmData({date: '', time: '', instructor_id: ''});
+    } catch (error) {
+      console.error('Error confirming request:', error);
+      toast({
+        title: "Σφάλμα",
+        description: "Αποτυχία οριστικοποίησης ραντεβού.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleRejectRequest = async () => {
+    if (!rejectDialog.request || !rejectReason) {
+      toast({
+        title: "Σφάλμα",
+        description: "Παρακαλώ εισάγετε λόγο απόρριψης.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const response = await bookingRequestsApi.reject(rejectDialog.request.id, { reason: rejectReason });
+      
+      // Update the request in the list
+      setBookingRequests(bookingRequests.map(req => 
+        req.id === rejectDialog.request.id ? {...req, status: 'rejected', rejection_reason: rejectReason} : req
+      ));
+
+      toast({
+        title: "Επιτυχία!",
+        description: response.message || "Το αίτημα απορρίφθηκε.",
+      });
+
+      setRejectDialog({open: false, request: null});
+      setRejectReason('');
+    } catch (error) {
+      console.error('Error rejecting request:', error);
+      toast({
+        title: "Σφάλμα",
+        description: "Αποτυχία απόρριψης αιτήματος.",
+        variant: "destructive",
+      });
+    }
+  };
+
   // Filter bookings based on search term, status, and date
   const filteredBookings = bookings.filter(booking => {
     const matchesSearch = searchTerm === "" || 
@@ -354,7 +490,7 @@ export function BookingsPage() {
       case "group":
         return <Badge variant="outline">Ομαδικό</Badge>;
       case "personal":
-        return <Badge variant="default">Personal</Badge>;
+        return <Badge variant="default">Personal Training</Badge>;
       default:
         return <Badge variant="outline">{type}</Badge>;
     }
@@ -629,98 +765,361 @@ export function BookingsPage() {
             </div>
 
             {/* Bookings Table */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Λίστα Κρατήσεων</CardTitle>
-                <CardDescription>
-                  Διαχειριστείτε όλες τις κρατήσεις και το πρόγραμμα των πελατών
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Πελάτης</TableHead>
-                      <TableHead>Μάθημα</TableHead>
-                      <TableHead>Προπονητής</TableHead>
-                      <TableHead>Ημερομηνία & Ώρα</TableHead>
-                      <TableHead>Τύπος</TableHead>
-                      <TableHead>Κατάσταση</TableHead>
-                      <TableHead>Ενέργειες</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredBookings.map((booking) => (
-                      <TableRow key={booking.id}>
-                        <TableCell>
-                          <div className="flex items-center space-x-3">
-                            <Avatar className="h-8 w-8">
-                              <AvatarImage src={booking.avatar} />
-                              <AvatarFallback>
-                                {booking.customer_name?.slice(0, 2).toUpperCase()}
-                              </AvatarFallback>
-                            </Avatar>
-                            <div>
-                              <div className="font-medium">{booking.customer_name}</div>
-                              <div className="text-sm text-muted-foreground">
-                                {booking.customer_email}
+            <Tabs defaultValue="bookings" className="w-full">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="bookings">Κρατήσεις</TabsTrigger>
+                <TabsTrigger value="requests">Αιτήματα Ραντεβού</TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="bookings">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Λίστα Κρατήσεων</CardTitle>
+                    <CardDescription>
+                      Διαχειριστείτε όλες τις κρατήσεις και το πρόγραμμα των πελατών
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Πελάτης</TableHead>
+                          <TableHead>Μάθημα</TableHead>
+                          <TableHead>Προπονητής</TableHead>
+                          <TableHead>Ημερομηνία & Ώρα</TableHead>
+                          <TableHead>Τύπος</TableHead>
+                          <TableHead>Κατάσταση</TableHead>
+                          <TableHead>Ενέργειες</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {filteredBookings.map((booking) => (
+                          <TableRow key={booking.id}>
+                            <TableCell>
+                              <div className="flex items-center space-x-3">
+                                <Avatar className="h-8 w-8">
+                                  <AvatarImage src={booking.avatar} />
+                                  <AvatarFallback>
+                                    {booking.customer_name?.slice(0, 2).toUpperCase()}
+                                  </AvatarFallback>
+                                </Avatar>
+                                <div>
+                                  <div className="font-medium">{booking.customer_name}</div>
+                                  <div className="text-sm text-muted-foreground">
+                                    {booking.customer_email}
+                                  </div>
+                                </div>
                               </div>
-                            </div>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="font-medium">{booking.class_name}</div>
-                          <div className="text-sm text-muted-foreground">{booking.location}</div>
-                        </TableCell>
-                        <TableCell>{booking.instructor}</TableCell>
-                        <TableCell>
-                          <div className="text-sm">
-                            <div>{formatBookingDate(booking.date)}</div>
-                            <div className="text-muted-foreground">{formatBookingTime(booking.time)}</div>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          {getTypeBadge(booking.type)}
-                        </TableCell>
-                        <TableCell>
-                          {getStatusBadge(booking.status)}
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center space-x-2">
-                            {booking.status === 'confirmed' && (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => handleCheckIn(booking.id)}
-                              >
-                                <CheckCircle className="h-4 w-4" />
-                              </Button>
-                            )}
-                            {(booking.status === 'confirmed' || booking.status === 'pending') && (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => handleCancelBooking(booking.id)}
-                              >
-                                <XCircle className="h-4 w-4" />
-                              </Button>
-                            )}
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-                {filteredBookings.length === 0 && !isLoading && (
-                  <div className="text-center py-4 text-muted-foreground">
-                    Δεν βρέθηκαν κρατήσεις με τα τρέχοντα φίλτρα
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+                            </TableCell>
+                            <TableCell>
+                              <div className="font-medium">{booking.class_name}</div>
+                              <div className="text-sm text-muted-foreground">{booking.location}</div>
+                            </TableCell>
+                            <TableCell>{booking.instructor}</TableCell>
+                            <TableCell>
+                              <div className="text-sm">
+                                <div>{formatBookingDate(booking.date)}</div>
+                                <div className="text-muted-foreground">{formatBookingTime(booking.time)}</div>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              {getTypeBadge(booking.type)}
+                            </TableCell>
+                            <TableCell>
+                              {getStatusBadge(booking.status)}
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center space-x-2">
+                                {booking.status === 'confirmed' && (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => handleCheckIn(booking.id)}
+                                  >
+                                    <CheckCircle className="h-4 w-4" />
+                                  </Button>
+                                )}
+                                {(booking.status === 'confirmed' || booking.status === 'pending') && (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => handleCancelBooking(booking.id)}
+                                  >
+                                    <XCircle className="h-4 w-4" />
+                                  </Button>
+                                )}
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                    {filteredBookings.length === 0 && !isLoading && (
+                      <div className="text-center py-4 text-muted-foreground">
+                        Δεν βρέθηκαν κρατήσεις με τα τρέχοντα φίλτρα
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              <TabsContent value="requests">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Αιτήματα Ραντεβού EMS/Personal</CardTitle>
+                    <CardDescription>
+                      Διαχειριστείτε τα αιτήματα για EMS και Personal Training
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Πελάτης</TableHead>
+                          <TableHead>Τύπος</TableHead>
+                          <TableHead>Προτιμώμενες Ημερομηνίες</TableHead>
+                          <TableHead>Μήνυμα</TableHead>
+                          <TableHead>Κατάσταση</TableHead>
+                          <TableHead>Ημ/νία Αιτήματος</TableHead>
+                          <TableHead>Ενέργειες</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {bookingRequests.length === 0 && !isLoading ? (
+                          <TableRow>
+                            <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                              <div className="flex flex-col items-center gap-2">
+                                <span className="text-lg font-medium">Δεν υπάρχουν αιτήματα ραντεβού</span>
+                                <span className="text-sm">Τα αιτήματα θα εμφανιστούν εδώ όταν υποβληθούν από τους πελάτες</span>
+                                <button onClick={() => {
+                                  console.warn('🔄 Manual refresh triggered');
+                                  window.location.reload();
+                                }} className="mt-2 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">
+                                  Ανανέωση
+                                </button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ) : (
+                          bookingRequests.map((request) => (
+                            <TableRow key={request.id}>
+                              <TableCell>
+                                <div className="flex items-center space-x-3">
+                                  <Avatar className="h-8 w-8">
+                                    <AvatarFallback>
+                                      {request.customer_name?.slice(0, 2).toUpperCase() || 'XX'}
+                                    </AvatarFallback>
+                                  </Avatar>
+                                  <div>
+                                    <div className="font-medium">{request.customer_name}</div>
+                                    <div className="text-sm text-muted-foreground">
+                                      {request.customer_email}
+                                    </div>
+                                    {request.customer_phone && (
+                                      <div className="text-sm text-muted-foreground">
+                                        {request.customer_phone}
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              </TableCell>
+                              <TableCell>
+                                {request.type === 'ems' ? (
+                                  <Badge variant="outline" className="bg-purple-100 text-purple-800">EMS</Badge>
+                                ) : (
+                                  <Badge variant="outline" className="bg-blue-100 text-blue-800">Personal</Badge>
+                                )}
+                              </TableCell>
+                              <TableCell>
+                                <div className="text-sm">
+                                  {request.preferred_dates?.map((date: string, idx: number) => (
+                                    <div key={idx} className="font-medium">{formatBookingDate(date)}</div>
+                                  ))}
+                                  {request.preferred_times?.length > 0 && (
+                                    <div className="text-muted-foreground mt-1">
+                                      {request.preferred_times.length === 1 ? 
+                                        request.preferred_times[0] :
+                                        request.preferred_times.length === 2 ?
+                                        `${request.preferred_times[0]} - ${request.preferred_times[1]}` :
+                                        request.preferred_times.join(', ')
+                                      }
+                                    </div>
+                                  )}
+                                </div>
+                              </TableCell>
+                              <TableCell>
+                                <div className="text-sm max-w-xs truncate" title={request.message}>
+                                  {request.message || '-'}
+                                </div>
+                              </TableCell>
+                              <TableCell>
+                                {request.status === 'pending' && (
+                                  <Badge variant="secondary">Εκκρεμεί</Badge>
+                                )}
+                                {request.status === 'confirmed' && (
+                                  <Badge variant="default" className="bg-green-100 text-green-800">Επιβεβαιωμένο</Badge>
+                                )}
+                                {request.status === 'rejected' && (
+                                  <Badge variant="destructive">Απορρίφθηκε</Badge>
+                                )}
+                              </TableCell>
+                              <TableCell>
+                                <div className="text-sm">
+                                  {formatBookingDate(request.created_at)}
+                                </div>
+                              </TableCell>
+                              <TableCell>
+                                {request.status === 'pending' && (
+                                  <div className="flex items-center space-x-2">
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      className="text-green-600 hover:text-green-700"
+                                      onClick={() => {
+                                        setConfirmDialog({open: true, request});
+                                        setConfirmData({
+                                          date: request.preferred_dates?.[0] || '',
+                                          time: request.preferred_times?.[0] || '',
+                                          instructor_id: ''
+                                        });
+                                      }}
+                                    >
+                                      <CheckCircle className="h-4 w-4" />
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      className="text-red-600 hover:text-red-700"
+                                      onClick={() => setRejectDialog({open: true, request})}
+                                    >
+                                      <XCircle className="h-4 w-4" />
+                                    </Button>
+                                  </div>
+                                )}
+                              </TableCell>
+                            </TableRow>
+                          ))
+                        )}
+                      </TableBody>
+                    </Table>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+            </Tabs>
           </main>
         </div>
       </div>
+
+      {/* Confirm Request Dialog */}
+      <Dialog open={confirmDialog.open} onOpenChange={(open) => !open && setConfirmDialog({open: false, request: null})}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Οριστικοποίηση Ραντεβού</DialogTitle>
+            <DialogDescription>
+              Επιλέξτε ημερομηνία και ώρα για το ραντεβού {confirmDialog.request?.type === 'ems' ? 'EMS' : 'Personal Training'}
+            </DialogDescription>
+          </DialogHeader>
+          {confirmDialog.request && (
+            <div className="space-y-4">
+              <div className="p-4 bg-muted rounded-lg">
+                <h4 className="font-semibold mb-2">Στοιχεία Πελάτη</h4>
+                <p className="text-sm"><strong>Όνομα:</strong> {confirmDialog.request.customer_name}</p>
+                <p className="text-sm"><strong>Email:</strong> {confirmDialog.request.customer_email}</p>
+                {confirmDialog.request.customer_phone && (
+                  <p className="text-sm"><strong>Τηλέφωνο:</strong> {confirmDialog.request.customer_phone}</p>
+                )}
+                {confirmDialog.request.message && (
+                  <p className="text-sm mt-2"><strong>Μήνυμα:</strong> {confirmDialog.request.message}</p>
+                )}
+              </div>
+              
+              <div>
+                <label className="text-sm font-medium">Ημερομηνία *</label>
+                <Input
+                  type="date"
+                  value={confirmData.date}
+                  onChange={(e) => setConfirmData({...confirmData, date: e.target.value})}
+                  min={new Date().toISOString().split('T')[0]}
+                />
+              </div>
+              
+              <div>
+                <label className="text-sm font-medium">Ώρα *</label>
+                <Input
+                  type="time"
+                  value={confirmData.time}
+                  onChange={(e) => setConfirmData({...confirmData, time: e.target.value})}
+                />
+              </div>
+              
+              {confirmDialog.request.type === 'personal' && (
+                <div>
+                  <label className="text-sm font-medium">Προπονητής (προαιρετικό)</label>
+                  <Select value={confirmData.instructor_id} onValueChange={(value) => setConfirmData({...confirmData, instructor_id: value})}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Επιλέξτε προπονητή" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {instructors.map((instructor) => (
+                        <SelectItem key={instructor.id} value={instructor.id}>
+                          {instructor.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+            </div>
+          )}
+          <div className="flex justify-end space-x-2">
+            <Button variant="outline" onClick={() => setConfirmDialog({open: false, request: null})}>
+              Ακύρωση
+            </Button>
+            <Button onClick={handleConfirmRequest} className="bg-green-600 hover:bg-green-700">
+              Οριστικοποίηση
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Reject Request Dialog */}
+      <Dialog open={rejectDialog.open} onOpenChange={(open) => !open && setRejectDialog({open: false, request: null})}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Απόρριψη Αιτήματος</DialogTitle>
+            <DialogDescription>
+              Εισάγετε τον λόγο απόρριψης του αιτήματος
+            </DialogDescription>
+          </DialogHeader>
+          {rejectDialog.request && (
+            <div className="space-y-4">
+              <div className="p-4 bg-muted rounded-lg">
+                <h4 className="font-semibold mb-2">Στοιχεία Αιτήματος</h4>
+                <p className="text-sm"><strong>Πελάτης:</strong> {rejectDialog.request.customer_name}</p>
+                <p className="text-sm"><strong>Τύπος:</strong> {rejectDialog.request.type === 'ems' ? 'EMS' : 'Personal Training'}</p>
+              </div>
+              
+              <div>
+                <label className="text-sm font-medium">Λόγος Απόρριψης *</label>
+                <textarea
+                  className="w-full min-h-[100px] rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                  placeholder="Εισάγετε τον λόγο απόρριψης..."
+                  value={rejectReason}
+                  onChange={(e) => setRejectReason(e.target.value)}
+                />
+              </div>
+            </div>
+          )}
+          <div className="flex justify-end space-x-2">
+            <Button variant="outline" onClick={() => setRejectDialog({open: false, request: null})}>
+              Ακύρωση
+            </Button>
+            <Button onClick={handleRejectRequest} variant="destructive">
+              Απόρριψη
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </SidebarProvider>
   );
 }
