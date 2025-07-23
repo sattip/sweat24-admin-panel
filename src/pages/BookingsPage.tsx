@@ -372,6 +372,31 @@ export function BookingsPage() {
     }
   };
 
+  const handlePromoteFromWaitlist = async (bookingId: string) => {
+    try {
+      const response = await bookingsApi.update(bookingId, {
+        status: 'confirmed'
+      });
+      const updatedBooking = response.data || response;
+      
+      setBookings(bookings.map(booking => 
+        booking.id === bookingId ? updatedBooking : booking
+      ));
+
+      toast({
+        title: "Επιτυχία!",
+        description: "Ο χρήστης προωθήθηκε από τη λίστα αναμονής.",
+      });
+    } catch (error) {
+      console.error('Error promoting from waitlist:', error);
+      toast({
+        title: "Σφάλμα",
+        description: "Αποτυχία προώθησης από τη λίστα αναμονής.",
+        variant: "destructive",
+      });
+    }
+  };
+
   const handleConfirmRequest = async () => {
     if (!confirmDialog.request || !confirmData.date || !confirmData.time) {
       toast({
@@ -496,6 +521,19 @@ export function BookingsPage() {
     }
   };
 
+  // Helper functions for formatting
+  const formatBookingDate = (dateString: string) => {
+    try {
+      return format(parseISO(dateString), "dd/MM/yyyy", { locale: el });
+    } catch {
+      return dateString;
+    }
+  };
+
+  const formatBookingTime = (timeString: string) => {
+    return timeString || 'N/A';
+  };
+
   // Stats calculations
   const todayBookings = bookings.filter(booking => 
     booking.date === format(new Date(), "yyyy-MM-dd")
@@ -503,6 +541,7 @@ export function BookingsPage() {
   const confirmedBookings = todayBookings.filter(booking => booking.status === "confirmed");
   const completedBookings = todayBookings.filter(booking => booking.status === "completed");
   const cancelledBookings = todayBookings.filter(booking => booking.status === "cancelled");
+  const waitlistBookings = bookings.filter(booking => booking.status === "waitlist");
 
   return (
     <SidebarProvider>
@@ -702,6 +741,27 @@ export function BookingsPage() {
               </Card>
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Σε Αναμονή</CardTitle>
+                  <Clock className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  {isLoading ? (
+                    <div className="flex items-center space-x-2">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <span className="text-sm text-muted-foreground">Φόρτωση...</span>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="text-2xl font-bold">{waitlistBookings.length}</div>
+                      <p className="text-xs text-muted-foreground">
+                        αναμένουν
+                      </p>
+                    </>
+                  )}
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-sm font-medium">Ποσοστό Παρουσίας</CardTitle>
                   <Users className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
@@ -766,8 +826,9 @@ export function BookingsPage() {
 
             {/* Bookings Table */}
             <Tabs defaultValue="bookings" className="w-full">
-              <TabsList className="grid w-full grid-cols-2">
+              <TabsList className="grid w-full grid-cols-3">
                 <TabsTrigger value="bookings">Κρατήσεις</TabsTrigger>
+                <TabsTrigger value="waitlist">Λίστα Αναμονής</TabsTrigger>
                 <TabsTrigger value="requests">Αιτήματα Ραντεβού</TabsTrigger>
               </TabsList>
               
@@ -861,8 +922,116 @@ export function BookingsPage() {
                     )}
                   </CardContent>
                 </Card>
+                            </TabsContent>
+              
+              <TabsContent value="waitlist">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Λίστα Αναμονής</CardTitle>
+                    <CardDescription>
+                      Διαχειριστείτε χρήστες σε αναμονή και προωθήστε τους σε διαθέσιμες θέσεις
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Πελάτης</TableHead>
+                          <TableHead>Μάθημα</TableHead>
+                          <TableHead>Προπονητής</TableHead>
+                          <TableHead>Ημερομηνία & Ώρα</TableHead>
+                          <TableHead>Θέση στη Λίστα</TableHead>
+                          <TableHead>Καταχωρήθηκε</TableHead>
+                          <TableHead>Ενέργειες</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {filteredBookings
+                          .filter(booking => booking.status === "waitlist")
+                          .sort((a, b) => new Date(a.created_at || a.date).getTime() - new Date(b.created_at || b.date).getTime())
+                          .map((booking, index) => (
+                          <TableRow key={booking.id}>
+                            <TableCell>
+                              <div className="flex items-center space-x-3">
+                                <Avatar className="h-8 w-8">
+                                  <AvatarImage src={booking.avatar} />
+                                  <AvatarFallback>
+                                    {booking.customer_name?.slice(0, 2).toUpperCase()}
+                                  </AvatarFallback>
+                                </Avatar>
+                                <div>
+                                  <div className="font-medium">{booking.customer_name}</div>
+                                  <div className="text-sm text-muted-foreground">
+                                    {booking.customer_email}
+                                  </div>
+                                </div>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="font-medium">{booking.class_name}</div>
+                              <div className="text-sm text-muted-foreground">{booking.location}</div>
+                            </TableCell>
+                            <TableCell>{booking.instructor}</TableCell>
+                            <TableCell>
+                              <div className="text-sm">
+                                <div>{formatBookingDate(booking.date)}</div>
+                                <div className="text-muted-foreground">{formatBookingTime(booking.time)}</div>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant="outline" className="bg-orange-100 text-orange-800">
+                                #{index + 1}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              <div className="text-sm text-muted-foreground">
+                                {booking.created_at ? format(parseISO(booking.created_at), "dd/MM/yyyy HH:mm", { locale: el }) : 'N/A'}
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center space-x-2">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="text-green-600 hover:text-green-700"
+                                  onClick={() => {
+                                    // Προώθηση σε κανονική κράτηση
+                                    handlePromoteFromWaitlist(booking.id);
+                                  }}
+                                  title="Προώθηση σε Κράτηση"
+                                >
+                                  <ArrowRightLeft className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="text-red-600 hover:text-red-700"
+                                  onClick={() => handleCancelBooking(booking.id, 'Αφαίρεση από waitlist')}
+                                  title="Αφαίρεση από Waitlist"
+                                >
+                                  <X className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                        {filteredBookings.filter(booking => booking.status === "waitlist").length === 0 && (
+                          <TableRow>
+                            <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                              <div className="flex flex-col items-center gap-2">
+                                <Clock className="h-12 w-12 text-muted-foreground/30" />
+                                <span className="text-lg font-medium">Κανένας χρήστης σε αναμονή</span>
+                                <span className="text-sm">Οι χρήστες προστίθενται αυτόματα στη λίστα αναμονής όταν τα μαθήματα είναι πλήρη</span>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </TableBody>
+                    </Table>
+                  </CardContent>
+                </Card>
               </TabsContent>
-
+              
               <TabsContent value="requests">
                 <Card>
                   <CardHeader>

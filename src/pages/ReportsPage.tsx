@@ -22,6 +22,8 @@ import {
   PieChart,
   Activity,
   AlertCircle,
+  Gift,
+  UserPlus,
 } from "lucide-react";
 import {
   BarChart,
@@ -42,10 +44,21 @@ import { toast } from "sonner";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { AdminSidebar } from "@/components/AdminSidebar";
 import { AdminHeader } from "@/components/AdminHeader";
+import { dashboardApi } from "@/services/apiService";
 
 const ReportsPage = () => {
   const [timeRange, setTimeRange] = useState("month");
   const [loading, setLoading] = useState(true);
+  const [bookingTypes, setBookingTypes] = useState({
+    regular: 0,
+    trial: 0,
+    loyalty_gift: 0,
+    referral_gift: 0,
+    personal_training: 0,
+    ems: 0,
+    pilates: 0,
+    other: 0,
+  });
   const [data, setData] = useState({
     revenue: {
       total: 0,
@@ -82,7 +95,18 @@ const ReportsPage = () => {
 
   useEffect(() => {
     generateMockData();
+    fetchBookingTypes();
   }, [timeRange]);
+
+  const fetchBookingTypes = async () => {
+    try {
+      const bookingTypesData = await dashboardApi.getBookingTypes();
+      setBookingTypes(bookingTypesData);
+    } catch (error) {
+      console.error('Error fetching booking types:', error);
+      toast.error('Σφάλμα κατά τη φόρτωση στατιστικών κρατήσεων');
+    }
+  };
 
   const generateMockData = () => {
     setLoading(true);
@@ -295,6 +319,8 @@ const ReportsPage = () => {
           <TabsTrigger value="customers">Πελάτες</TabsTrigger>
           <TabsTrigger value="packages">Πακέτα</TabsTrigger>
           <TabsTrigger value="sessions">Συνεδρίες</TabsTrigger>
+          <TabsTrigger value="booking-types">Τύποι Κρατήσεων</TabsTrigger>
+          <TabsTrigger value="debts">Οφειλές</TabsTrigger>
         </TabsList>
 
         {/* Revenue Tab */}
@@ -486,31 +512,164 @@ const ReportsPage = () => {
             </CardContent>
           </Card>
         </TabsContent>
-      </Tabs>
 
-      {/* Outstanding Debts */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Ληξιπρόθεσμες Οφειλές</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-2">
-            {data.debts.list.map((debt, index) => (
-              <div key={index} className="flex items-center justify-between p-2 rounded-lg hover:bg-muted">
-                <div>
-                  <div className="font-medium">{debt.customer}</div>
-                  <div className="text-sm text-muted-foreground">
-                    Καθυστέρηση: {debt.daysOverdue} ημέρες
+        {/* New Booking Types Tab */}
+        <TabsContent value="booking-types" className="space-y-4">
+          <div className="grid gap-4 md:grid-cols-4">
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm">Κανονικές Κρατήσεις</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{bookingTypes.regular}</div>
+                <p className="text-xs text-muted-foreground">Regular bookings</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm">Δοκιμαστικές</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{bookingTypes.trial}</div>
+                <p className="text-xs text-muted-foreground">Trial sessions</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm">Δώρα Ανταμοιβής</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{bookingTypes.loyalty_gift}</div>
+                <p className="text-xs text-muted-foreground">Loyalty gifts</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm">Δώρα Συστάσεων</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{bookingTypes.referral_gift}</div>
+                <p className="text-xs text-muted-foreground">Referral gifts</p>
+              </CardContent>
+            </Card>
+          </div>
+          
+          <div className="grid gap-4 md:grid-cols-2">
+            <Card>
+              <CardHeader>
+                <CardTitle>Ανάλυση Τύπων Κρατήσεων</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ResponsiveContainer width="100%" height={300}>
+                  <RechartsPieChart>
+                    <Pie
+                      data={[
+                        { name: 'Κανονικές', value: bookingTypes.regular, fill: '#3B82F6' },
+                        { name: 'Personal Training', value: bookingTypes.personal_training, fill: '#10B981' },
+                        { name: 'EMS', value: bookingTypes.ems, fill: '#F59E0B' },
+                        { name: 'Pilates', value: bookingTypes.pilates, fill: '#8B5CF6' },
+                        { name: 'Δοκιμαστικές', value: bookingTypes.trial, fill: '#EF4444' },
+                        { name: 'Δώρα Ανταμοιβής', value: bookingTypes.loyalty_gift, fill: '#06B6D4' },
+                        { name: 'Δώρα Συστάσεων', value: bookingTypes.referral_gift, fill: '#84CC16' },
+                        { name: 'Άλλα', value: bookingTypes.other, fill: '#6B7280' },
+                      ]}
+                      cx="50%"
+                      cy="50%"
+                      labelLine={false}
+                      label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                      outerRadius={80}
+                      fill="#8884d8"
+                      dataKey="value"
+                    />
+                    <Tooltip />
+                  </RechartsPieChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+            
+            <Card>
+              <CardHeader>
+                <CardTitle>Σύγκριση Τύπων Υπηρεσιών</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ResponsiveContainer width="100%" height={300}>
+                  <BarChart
+                    data={[
+                      { name: 'Personal Training', value: bookingTypes.personal_training },
+                      { name: 'EMS', value: bookingTypes.ems },
+                      { name: 'Pilates', value: bookingTypes.pilates },
+                      { name: 'Κανονικές', value: bookingTypes.regular },
+                    ]}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="name" />
+                    <YAxis />
+                    <Tooltip />
+                    <Bar dataKey="value" fill="#3B82F6" />
+                  </BarChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+          </div>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Στατιστικά Προγραμμάτων Ανταμοιβής & Συστάσεων</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid gap-4 md:grid-cols-3">
+                <div className="flex items-center gap-3 p-4 border rounded-lg">
+                  <Gift className="h-8 w-8 text-blue-500" />
+                  <div>
+                    <p className="text-2xl font-bold">{bookingTypes.loyalty_gift}</p>
+                    <p className="text-sm text-muted-foreground">Δώρα Ανταμοιβής</p>
                   </div>
                 </div>
-                <div className="font-semibold text-red-600">
-                  {debt.amount.toFixed(2)}€
+                <div className="flex items-center gap-3 p-4 border rounded-lg">
+                  <UserPlus className="h-8 w-8 text-green-500" />
+                  <div>
+                    <p className="text-2xl font-bold">{bookingTypes.referral_gift}</p>
+                    <p className="text-sm text-muted-foreground">Δώρα Συστάσεων</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 p-4 border rounded-lg">
+                  <Activity className="h-8 w-8 text-purple-500" />
+                  <div>
+                    <p className="text-2xl font-bold">{bookingTypes.loyalty_gift + bookingTypes.referral_gift}</p>
+                    <p className="text-sm text-muted-foreground">Συνολικά Δώρα</p>
+                  </div>
                 </div>
               </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Outstanding Debts */}
+        <TabsContent value="debts" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Ληξιπρόθεσμες Οφειλές</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                {data.debts.list.map((debt, index) => (
+                  <div key={index} className="flex items-center justify-between p-2 rounded-lg hover:bg-muted">
+                    <div>
+                      <div className="font-medium">{debt.customer}</div>
+                      <div className="text-sm text-muted-foreground">
+                        Καθυστέρηση: {debt.daysOverdue} ημέρες
+                      </div>
+                    </div>
+                    <div className="font-semibold text-red-600">
+                      {debt.amount.toFixed(2)}€
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
           </main>
         </div>
       </div>

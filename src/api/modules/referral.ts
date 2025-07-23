@@ -61,27 +61,27 @@ export const referralApi = {
     });
   },
 
-  // Rewards
+  // Rewards - ΔΙΟΡΘΩΜΕΝΑ ENDPOINTS
   getRewards: async (): Promise<ReferralReward[]> => {
-    return apiRequest('/admin/referral-rewards');
+    return apiRequest('/api/v1/admin/referral-reward-tiers');
   },
 
   createReward: async (data: Partial<ReferralReward>): Promise<ReferralReward> => {
-    return apiRequest('/admin/referral-rewards', {
+    return apiRequest('/api/v1/admin/referral-reward-tiers', {
       method: 'POST',
       body: JSON.stringify(data),
     });
   },
 
   updateReward: async (id: number, data: Partial<ReferralReward>): Promise<ReferralReward> => {
-    return apiRequest(`/admin/referral-rewards/${id}`, {
+    return apiRequest(`/api/v1/admin/referral-reward-tiers/${id}`, {
       method: 'PUT',
       body: JSON.stringify(data),
     });
   },
 
   deleteReward: async (id: number): Promise<void> => {
-    return apiRequest(`/admin/referral-rewards/${id}`, {
+    return apiRequest(`/api/v1/admin/referral-reward-tiers/${id}`, {
       method: 'DELETE',
     });
   },

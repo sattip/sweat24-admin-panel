@@ -44,17 +44,9 @@ export const apiRequest = async <T = unknown>(
   const url = getApiUrl(endpoint);
   
   // Get auth token from localStorage
-  const token = localStorage.getItem('auth-token');
+  const token = localStorage.getItem('admin_token');
   
-  // Debug logging for booking requests
-  if (endpoint.includes('booking-requests')) {
-    console.log('🔍 API Request Debug:', {
-      endpoint,
-      url,
-      hasToken: !!token,
-      tokenPreview: token ? `${token.substring(0, 10)}...` : 'NO TOKEN'
-    });
-  }
+  // Debug logging removed for production
   
   const config: RequestInit = {
     ...options,
@@ -71,7 +63,7 @@ export const apiRequest = async <T = unknown>(
     if (!response.ok) {
       // If unauthorized, redirect to login
       if (response.status === 401) {
-        localStorage.removeItem('auth-token');
+        localStorage.removeItem('admin_token');
         window.location.href = '/login';
         throw new Error('Unauthorized - please login again');
       }

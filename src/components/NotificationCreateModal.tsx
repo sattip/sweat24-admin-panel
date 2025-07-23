@@ -15,6 +15,7 @@ import { Bell, Send, Calendar as CalendarIcon, Users, Filter, Plus, X } from "lu
 import { format } from "date-fns";
 import { el } from "date-fns/locale";
 import { cn } from "../lib/utils";
+import { NOTIFICATION_TYPES, NOTIFICATION_EMOJIS, NotificationType } from "@/utils/notificationTypes";
 
 interface NotificationCreateModalProps {
   isOpen: boolean;
@@ -266,10 +267,11 @@ export function NotificationCreateModal({ isOpen, onClose, onSuccess }: Notifica
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="info">ℹ️ Πληροφορία</SelectItem>
-                    <SelectItem value="warning">⚠️ Προειδοποίηση</SelectItem>
-                    <SelectItem value="success">✅ Επιτυχία</SelectItem>
-                    <SelectItem value="error">❌ Σφάλμα</SelectItem>
+                    {Object.entries(NOTIFICATION_TYPES).map(([key, label]) => (
+                      <SelectItem key={key} value={key}>
+                        {NOTIFICATION_EMOJIS[key as NotificationType]} {label}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>

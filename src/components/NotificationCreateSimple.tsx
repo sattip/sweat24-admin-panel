@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Badge } from "./ui/badge";
 import { toast } from "sonner";
 import { Bell, Send, Users } from "lucide-react";
+import { NOTIFICATION_TYPES, NOTIFICATION_EMOJIS, NotificationType } from "@/utils/notificationTypes";
 
 interface NotificationCreateSimpleProps {
   isOpen: boolean;
@@ -143,10 +144,11 @@ export function NotificationCreateSimple({ isOpen, onClose, onSuccess }: Notific
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="info">ℹ️ Πληροφορία</SelectItem>
-                    <SelectItem value="warning">⚠️ Προειδοποίηση</SelectItem>
-                    <SelectItem value="success">✅ Επιτυχία</SelectItem>
-                    <SelectItem value="error">❌ Σφάλμα</SelectItem>
+                    {Object.entries(NOTIFICATION_TYPES).map(([key, label]) => (
+                      <SelectItem key={key} value={key}>
+                        {NOTIFICATION_EMOJIS[key as NotificationType]} {label}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>

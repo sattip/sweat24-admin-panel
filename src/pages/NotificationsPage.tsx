@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Plus, Bell, Filter, Send, Clock, CheckCircle, AlertCircle, Info, Users, Eye, Trash2, Edit } from "lucide-react";
+import { NOTIFICATION_TYPES, NOTIFICATION_ICONS, NOTIFICATION_COLORS, NOTIFICATION_EMOJIS, NotificationType } from "@/utils/notificationTypes";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
@@ -8,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../co
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../components/ui/table";
 import { useToast } from "../hooks/use-toast";
 import { apiService } from "../services/apiService";
+import { notificationsApi } from "@/api/modules/notifications";
 import { NotificationCreateModal } from "../components/NotificationCreateModal";
 import { NotificationFiltersModal } from "../components/NotificationFiltersModal";
 import { format } from "date-fns";
@@ -20,7 +22,7 @@ interface Notification {
   id: number;
   title: string;
   message: string;
-  type: 'info' | 'warning' | 'success' | 'error';
+  type: NotificationType;
   priority: 'low' | 'medium' | 'high';
   channels: string[];
   status: 'draft' | 'scheduled' | 'sent' | 'failed';
@@ -89,8 +91,8 @@ export function NotificationsPage() {
 
   const fetchStats = async () => {
     try {
-      const response = await apiService.get("/notifications/statistics");
-      setStats(response.data);
+      const response = await notificationsApi.getStatistics();
+      setStats(response);
     } catch (error) {
       console.error("Error fetching stats:", error);
     }
@@ -151,18 +153,21 @@ export function NotificationsPage() {
   };
 
   const getTypeBadge = (type: string) => {
-    switch (type) {
-      case 'info':
-        return <Badge variant="outline" className="bg-blue-50"><Info className="h-3 w-3 mr-1" />Πληροφορία</Badge>;
-      case 'warning':
-        return <Badge variant="outline" className="bg-yellow-50">Προειδοποίηση</Badge>;
-      case 'success':
-        return <Badge variant="outline" className="bg-green-50">Επιτυχία</Badge>;
-      case 'error':
-        return <Badge variant="outline" className="bg-red-50">Σφάλμα</Badge>;
-      default:
-        return <Badge>{type}</Badge>;
+    const typedType = type as NotificationType;
+    const IconComponent = NOTIFICATION_ICONS[typedType];
+    const colorClass = NOTIFICATION_COLORS[typedType];
+    const label = NOTIFICATION_TYPES[typedType];
+    
+    if (IconComponent && colorClass && label) {
+      return (
+        <Badge variant="outline" className={colorClass}>
+          <IconComponent className="h-3 w-3 mr-1" />
+          {label}
+        </Badge>
+      );
     }
+    
+    return <Badge variant="outline">{type}</Badge>;
   };
 
   const getPriorityBadge = (priority: string) => {

@@ -331,6 +331,19 @@ export const dashboardApi = {
     return apiRequest(API_CONFIG.ENDPOINTS.DASHBOARD_STATS);
   },
   
+  getBookingTypes: async (): Promise<{
+    regular: number;
+    trial: number;
+    loyalty_gift: number;
+    referral_gift: number;
+    personal_training: number;
+    ems: number;
+    pilates: number;
+    other: number;
+  }> => {
+    return apiRequest('/api/v1/admin/statistics/booking-types');
+  },
+  
   getAll: async (): Promise<{
     recentActivity?: Array<{
       id: string;

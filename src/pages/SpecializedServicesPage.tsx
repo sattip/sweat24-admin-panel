@@ -489,24 +489,114 @@ export default function SpecializedServicesPage() {
   };
 
   const formatPreferredTimes = (request: AppointmentRequest) => {
-    const dates = request.preferred_dates || [];
-    const times = request.preferred_times || [];
-    
-    if (dates.length === 0 && times.length === 0) {
-      return request.preferred_time_slot || '-';
+
+
+    // Handle different possible field names and formats
+    let dates: string[] = [];
+    let times: string[] = [];
+    let timeSlots: string[] = [];
+    const timeSlot = request.preferred_time_slot;
+
+    // Parse preferred_dates (could be array of strings or objects)
+    if (request.preferred_dates) {
+      if (Array.isArray(request.preferred_dates)) {
+        dates = request.preferred_dates.map((date: any) => {
+          if (typeof date === 'string') return date;
+          if (typeof date === 'object' && date.date) return date.date;
+          return String(date);
+        });
+      }
+    }
+
+    // Parse preferred_times (could be array of strings or objects)
+    if (request.preferred_times) {
+      if (Array.isArray(request.preferred_times)) {
+        times = request.preferred_times.map((time: any) => {
+          if (typeof time === 'string') return time;
+          if (typeof time === 'object' && time.time) return time.time;
+          if (typeof time === 'object' && time.start && time.end) return `${time.start}-${time.end}`;
+          return String(time);
+        });
+      }
+    }
+
+    // Parse preferred_time_slots (objects with date, start_time, end_time)
+    if (request.preferred_time_slots) {
+      if (Array.isArray(request.preferred_time_slots)) {
+        request.preferred_time_slots.forEach((slot: any) => {
+          if (typeof slot === 'object' && slot.date) {
+            // Extract date
+            dates.push(slot.date);
+            // Extract time range
+            if (slot.start_time && slot.end_time) {
+              times.push(`${slot.start_time} - ${slot.end_time}`);
+            } else if (slot.start_time) {
+              times.push(slot.start_time);
+            }
+          } else if (typeof slot === 'string') {
+            timeSlots.push(slot);
+          } else {
+            timeSlots.push(String(slot));
+          }
+        });
+      } else if (typeof request.preferred_time_slots === 'string') {
+        try {
+          const parsed = JSON.parse(request.preferred_time_slots);
+          if (Array.isArray(parsed)) {
+            parsed.forEach((slot: any) => {
+              if (typeof slot === 'object' && slot.date) {
+                dates.push(slot.date);
+                if (slot.start_time && slot.end_time) {
+                  times.push(`${slot.start_time} - ${slot.end_time}`);
+                }
+              } else {
+                timeSlots.push(String(slot));
+              }
+            });
+          } else {
+            timeSlots = [String(parsed)];
+          }
+        } catch {
+          timeSlots = [request.preferred_time_slots];
+        }
+      } else {
+        timeSlots = [String(request.preferred_time_slots)];
+      }
     }
 
     return (
-      <div className="text-sm">
-        {dates.map((date: string, idx: number) => (
-          <div key={idx} className="font-medium">
+      <div className="text-sm space-y-1">
+        {/* Show preferred dates */}
+        {dates.length > 0 && dates.map((date: string, idx: number) => (
+          <div key={`date-${idx}`} className="font-medium text-blue-700">
             📅 {new Date(date).toLocaleDateString('el-GR')}
           </div>
         ))}
+        
+        {/* Show preferred times */}
         {times.length > 0 && (
-          <div className="text-muted-foreground mt-1">
-            🕐 {times.join(' - ')}
+          <div className="text-green-700">
+            🕐 {times.join(', ')}
           </div>
+        )}
+        
+        {/* Show time slots */}
+        {timeSlots.length > 0 && (
+          <div className="text-purple-700">
+            ⏰ {timeSlots.join(', ')}
+          </div>
+        )}
+        
+        {/* Show single time slot */}
+        {timeSlot && dates.length === 0 && times.length === 0 && timeSlots.length === 0 && (
+          <div className="text-orange-700">
+            ⏱️ {timeSlot}
+          </div>
+        )}
+        
+        {/* Fallback if nothing is available */}
+        {dates.length === 0 && times.length === 0 && timeSlots.length === 0 && !timeSlot && (
+          <div className="text-gray-500">-</div>
         )}
       </div>
     );
@@ -526,6 +616,8 @@ export default function SpecializedServicesPage() {
   };
 
   console.log('SpecializedServicesPage loaded with version: TEST 1 - If you see this, the updated file is loaded');
+
+  // UNIQUE_TEST_STRING_DO_NOT_REMOVE_123456789
 
   return (
     <SidebarProvider>
@@ -634,16 +726,16 @@ export default function SpecializedServicesPage() {
                   </div>
                 </DialogContent>
               </Dialog>
-            </div>
+                            </div>
 
-            <Tabs defaultValue="services" className="space-y-4" onValueChange={(value) => {
+                <Tabs defaultValue="services" className="space-y-4" onValueChange={(value) => {
               if (value === 'requests') {
                 fetchAppointmentRequests();
               }
             }}>
               <TabsList>
                 <TabsTrigger value="services">Υπηρεσίες</TabsTrigger>
-                <TabsTrigger value="requests">Αιτήματα Ραντεβού 1</TabsTrigger>
+                <TabsTrigger value="requests">Αιτήματα Ραντεβού</TabsTrigger>
               </TabsList>
 
               <TabsContent value="services" className="space-y-4">
@@ -735,12 +827,12 @@ export default function SpecializedServicesPage() {
                       </div>
                       <div>
                         <Label>Κατάσταση</Label>
-                        <Select value={filters.status || ''} onValueChange={(value) => handleFilterChange('status', value)}>
+                        <Select value={filters.status || 'all'} onValueChange={(value) => handleFilterChange('status', value === 'all' ? '' : value)}>
                           <SelectTrigger>
                             <SelectValue placeholder="Όλες" />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="">Όλες</SelectItem>
+                            <SelectItem value="all">Όλες</SelectItem>
                             <SelectItem value="pending">Εκκρεμεί</SelectItem>
                             <SelectItem value="confirmed">Επιβεβαιωμένο</SelectItem>
                             <SelectItem value="completed">Ολοκληρωμένο</SelectItem>
@@ -750,12 +842,12 @@ export default function SpecializedServicesPage() {
                       </div>
                       <div>
                         <Label>Τύπος Υπηρεσίας</Label>
-                        <Select value={filters.service_type || ''} onValueChange={(value) => handleFilterChange('service_type', value)}>
+                        <Select value={filters.service_type || 'all'} onValueChange={(value) => handleFilterChange('service_type', value === 'all' ? '' : value)}>
                           <SelectTrigger>
                             <SelectValue placeholder="Όλες" />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="">Όλες</SelectItem>
+                            <SelectItem value="all">Όλες</SelectItem>
                             <SelectItem value="ems">EMS</SelectItem>
                             <SelectItem value="personal">Personal Training</SelectItem>
                           </SelectContent>
@@ -936,22 +1028,52 @@ export default function SpecializedServicesPage() {
                     <div>
                       <Label>Προτιμώμενες Ημερομηνίες</Label>
                       <div className="mt-1">
-                        {selectedRequest.preferred_dates?.map((date: string, idx: number) => (
-                          <Badge key={idx} variant="outline" className="mr-1 mb-1">
-                            {new Date(date).toLocaleDateString('el-GR')}
-                          </Badge>
-                        ))}
+                        {selectedRequest.preferred_time_slots && Array.isArray(selectedRequest.preferred_time_slots) ? (
+                          selectedRequest.preferred_time_slots.map((slot: any, idx: number) => (
+                            slot.date ? (
+                              <Badge key={`date-${idx}`} variant="outline" className="mr-1 mb-1 bg-blue-50 text-blue-700">
+                                📅 {new Date(slot.date).toLocaleDateString('el-GR')}
+                              </Badge>
+                            ) : null
+                          ))
+                        ) : (
+                          selectedRequest.preferred_dates?.map((date: string, idx: number) => (
+                            <Badge key={idx} variant="outline" className="mr-1 mb-1 bg-blue-50 text-blue-700">
+                              📅 {new Date(date).toLocaleDateString('el-GR')}
+                            </Badge>
+                          ))
+                        )}
+                        {!selectedRequest.preferred_time_slots && !selectedRequest.preferred_dates && (
+                          <p className="text-sm text-gray-500">Δεν έχουν οριστεί προτιμώμενες ημερομηνίες</p>
+                        )}
                       </div>
                     </div>
 
                     <div>
                       <Label>Προτιμώμενες Ώρες</Label>
                       <div className="mt-1">
-                        {selectedRequest.preferred_times?.map((time: string, idx: number) => (
-                          <Badge key={idx} variant="outline" className="mr-1 mb-1">
-                            {time}
-                          </Badge>
-                        ))}
+                        {selectedRequest.preferred_time_slots && Array.isArray(selectedRequest.preferred_time_slots) ? (
+                          selectedRequest.preferred_time_slots.map((slot: any, idx: number) => (
+                            slot.start_time && slot.end_time ? (
+                              <Badge key={`time-${idx}`} variant="outline" className="mr-1 mb-1 bg-green-50 text-green-700">
+                                🕐 {slot.start_time} - {slot.end_time}
+                              </Badge>
+                            ) : slot.start_time ? (
+                              <Badge key={`time-${idx}`} variant="outline" className="mr-1 mb-1 bg-green-50 text-green-700">
+                                🕐 {slot.start_time}
+                              </Badge>
+                            ) : null
+                          ))
+                        ) : (
+                          selectedRequest.preferred_times?.map((time: string, idx: number) => (
+                            <Badge key={idx} variant="outline" className="mr-1 mb-1 bg-green-50 text-green-700">
+                              🕐 {time}
+                            </Badge>
+                          ))
+                        )}
+                        {!selectedRequest.preferred_time_slots && !selectedRequest.preferred_times && (
+                          <p className="text-sm text-gray-500">Δεν έχουν οριστεί προτιμώμενες ώρες</p>
+                        )}
                       </div>
                     </div>
 

@@ -12,6 +12,7 @@ import { useToast } from "../hooks/use-toast";
 import { apiService } from "../services/apiService";
 import { format } from "date-fns";
 import { el } from "date-fns/locale";
+import { NotificationType } from "@/utils/notificationTypes";
 
 interface NotificationRecipient {
   id: number;
@@ -21,7 +22,7 @@ interface NotificationRecipient {
     id: number;
     title: string;
     message: string;
-    type: 'info' | 'warning' | 'success' | 'error';
+    type: NotificationType;
     priority: 'low' | 'medium' | 'high';
   };
 }

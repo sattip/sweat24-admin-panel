@@ -34,7 +34,7 @@ interface AuthProviderProps {
 
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [token, setToken] = useState<string | null>(localStorage.getItem('auth-token'));
+  const [token, setToken] = useState<string | null>(localStorage.getItem('admin_token'));
   const [isLoading, setIsLoading] = useState(true);
 
   const isAuthenticated = !!user && !!token;
@@ -42,7 +42,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   // Check if user is already logged in on app start
   useEffect(() => {
     const checkAuth = async () => {
-      const savedToken = localStorage.getItem('auth-token');
+      const savedToken = localStorage.getItem('admin_token');
       if (savedToken) {
         try {
           const response = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.API_VERSION}/auth/me`, {
@@ -58,12 +58,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             setToken(savedToken);
           } else {
             // Token is invalid, remove it
-            localStorage.removeItem('auth-token');
+            localStorage.removeItem('admin_token');
             setToken(null);
           }
         } catch (error) {
           console.error('Auth check failed:', error);
-          localStorage.removeItem('auth-token');
+          localStorage.removeItem('admin_token');
           setToken(null);
         }
       }
@@ -92,7 +92,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const data = await response.json();
       
       // Save token and user data
-      localStorage.setItem('auth-token', data.token);
+              localStorage.setItem('admin_token', data.token);
       setToken(data.token);
       setUser(data.user);
     } catch (error) {
@@ -116,7 +116,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       console.error('Logout error:', error);
     } finally {
       // Always clear local state
-      localStorage.removeItem('auth-token');
+      localStorage.removeItem('admin_token');
       setToken(null);
       setUser(null);
     }

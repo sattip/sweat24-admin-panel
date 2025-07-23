@@ -837,7 +837,10 @@ export function ClassesPage() {
                           <div className="text-right space-y-1">
                             {getStatusBadge(cls.status, cls.current_participants || cls.currentParticipants || 0, cls.max_participants || cls.maxParticipants || 0)}
                             <div className="text-sm text-muted-foreground">
-                              {cls.current_participants || cls.currentParticipants || 0}/{cls.max_participants || cls.maxParticipants || 0}
+                              <div>{cls.current_participants || cls.currentParticipants || 0}/{cls.max_participants || cls.maxParticipants || 0}</div>
+                              {(cls.waitlist_count || 0) > 0 && (
+                                <div className="text-orange-600 text-xs">🕐 {cls.waitlist_count} αναμονή</div>
+                              )}
                             </div>
                           </div>
                         </div>
@@ -893,7 +896,14 @@ export function ClassesPage() {
                         <TableCell>{cls.location}</TableCell>
                         <TableCell>
                           <div className="text-sm">
-                            {cls.current_participants || cls.currentParticipants || 0}/{cls.max_participants || cls.maxParticipants || 0}
+                            <div className="font-medium">
+                              {cls.current_participants || cls.currentParticipants || 0}/{cls.max_participants || cls.maxParticipants || 0}
+                            </div>
+                            {(cls.waitlist_count || 0) > 0 && (
+                              <div className="text-orange-600 text-xs mt-1">
+                                🕐 {cls.waitlist_count} σε αναμονή
+                              </div>
+                            )}
                           </div>
                         </TableCell>
                         <TableCell>
@@ -958,6 +968,11 @@ export function ClassesPage() {
                   <p className="font-medium">
                     {selectedSession.current_participants || 0}/{selectedSession.max_participants || '∞'}
                   </p>
+                  {(selectedSession.waitlist_count || 0) > 0 && (
+                    <p className="text-sm text-orange-600 mt-1">
+                      🕐 {selectedSession.waitlist_count} χρήστες σε αναμονή
+                    </p>
+                  )}
                 </div>
               </div>
               {selectedSession.location && (

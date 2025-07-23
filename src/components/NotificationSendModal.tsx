@@ -16,6 +16,7 @@ import {
 } from "./ui/dialog";
 import { toast } from "sonner";
 import { Bell, Send, Users } from "lucide-react";
+import { NOTIFICATION_TYPES, NOTIFICATION_EMOJIS, NotificationType } from "@/utils/notificationTypes";
 
 interface NotificationSendModalProps {
   isOpen?: boolean;
@@ -31,6 +32,7 @@ export function NotificationSendModal({
   const [formData, setFormData] = useState({
     title: "",
     message: "",
+    type: "info",
     priority: "medium",
     channels: ["in_app"],
   });
@@ -71,6 +73,7 @@ export function NotificationSendModal({
     setFormData({
       title: "",
       message: "",
+      type: "info",
       priority: "medium",
       channels: ["in_app"],
     });
@@ -152,18 +155,36 @@ export function NotificationSendModal({
           </p>
         </div>
 
-        <div>
-          <Label>Προτεραιότητα</Label>
-          <Select value={formData.priority} onValueChange={(value) => setFormData(prev => ({...prev, priority: value}))}>
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="low">🟢 Χαμηλή</SelectItem>
-              <SelectItem value="medium">🟡 Μεσαία</SelectItem>
-              <SelectItem value="high">🔴 Υψηλή</SelectItem>
-            </SelectContent>
-          </Select>
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <Label>Τύπος</Label>
+            <Select value={formData.type} onValueChange={(value) => setFormData(prev => ({...prev, type: value}))}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {Object.entries(NOTIFICATION_TYPES).map(([key, label]) => (
+                  <SelectItem key={key} value={key}>
+                    {NOTIFICATION_EMOJIS[key as NotificationType]} {label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div>
+            <Label>Προτεραιότητα</Label>
+            <Select value={formData.priority} onValueChange={(value) => setFormData(prev => ({...prev, priority: value}))}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="low">🟢 Χαμηλή</SelectItem>
+                <SelectItem value="medium">🟡 Μεσαία</SelectItem>
+                <SelectItem value="high">🔴 Υψηλή</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
 
         {/* Delivery Channels */}

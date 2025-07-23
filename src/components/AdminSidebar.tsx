@@ -51,7 +51,7 @@ const adminNavigationItems = [
   { title: "Οικονομικές Αναφορές", url: "/reports", icon: TrendingUp },
   { title: "Αξιολόγηση & Πρόοδος", url: "/assessment", icon: Activity },
   { title: "Εξειδικευμένες Υπηρεσίες", url: "/specialized-services", icon: Briefcase },
-  { title: "Πρόγραμμα Παραπομπών", url: "/referral-program", icon: Gift },
+  { title: "Προγράμματα & Ανταμοιβές", url: "/referral-program", icon: Gift },
   { title: "Συνεργάτες", url: "/partners", icon: Building2 },
   { title: "Εκδηλώσεις", url: "/events", icon: CalendarDays },
   { title: "Ρυθμίσεις", url: "/settings", icon: Settings },
