@@ -30,12 +30,13 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
-import { Calendar as CalendarIcon, User, Mail, Phone, ArrowLeft, Package, Plus, Play, Pause, History, CalendarPlus, CreditCard, Edit, CheckCircle, XCircle, Clock, AlertTriangle, Check, X } from "lucide-react";
+import { Calendar as CalendarIcon, User, Mail, Phone, ArrowLeft, Package, Plus, Play, Pause, History, CalendarPlus, CreditCard, Edit, CheckCircle, XCircle, Clock, AlertTriangle, Check, X, Heart } from "lucide-react";
 import type { User as UserType, UserPackage } from "@/data/mockData";
 import { notifyPackageExtension } from "@/utils/notifications";
 import { PaymentInstallmentsModal } from "@/components/PaymentInstallmentsModal";
 import SignatureDisplay from "@/components/SignatureDisplay";
 import { apiService, usersApi } from "@/services/apiService";
+import { MedicalHistoryDisplay } from "@/components/MedicalHistoryDisplay";
 
 
 export function UserProfilePage() {
@@ -450,6 +451,23 @@ export function UserProfilePage() {
                                 </Table>
                             </CardContent>
                         </Card>
+                        
+                        {/* Medical History */}
+                        <Card>
+                            <CardHeader>
+                                <CardTitle className="flex items-center gap-2">
+                                    <Heart className="h-5 w-5" />
+                                    Ιατρικό Ιστορικό
+                                </CardTitle>
+                                <CardDescription>
+                                    Πληροφορίες υγείας και ιατρικό προφίλ του πελάτη
+                                </CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                                <MedicalHistoryDisplay userId={userId!} />
+                            </CardContent>
+                        </Card>
+                        
                          {/* Activity Log */}
                         <Card>
                             <CardHeader>
