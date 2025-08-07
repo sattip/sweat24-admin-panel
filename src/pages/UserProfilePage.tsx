@@ -136,7 +136,16 @@ export function UserProfilePage() {
             }
             
             if (fullProfileResponse.status === 'fulfilled') {
+                console.log('Full profile data received:', fullProfileResponse.value);
                 setFullProfile(fullProfileResponse.value);
+                
+                // Debug logging for medical history
+                if (fullProfileResponse.value?.medical_history) {
+                    console.log('Medical history found:', fullProfileResponse.value.medical_history);
+                    console.log('Has EMS interest:', fullProfileResponse.value.medical_history.has_ems_interest);
+                } else {
+                    console.log('No medical history in response');
+                }
             } else {
                 // Log the error but don't show toast as full profile is optional enhancement
                 console.warn('Failed to fetch full profile (optional):', fullProfileResponse.reason);
@@ -452,7 +461,15 @@ export function UserProfilePage() {
                         )}
 
                         {/* Medical History - EMS */}
-                        {fullProfile?.medical_history?.has_ems_interest && (
+                        {console.log('Rendering check - fullProfile:', fullProfile)}
+                        {console.log('Rendering check - medical_history:', fullProfile?.medical_history)}
+                        {console.log('Rendering check - has_ems_interest:', fullProfile?.medical_history?.has_ems_interest)}
+                        {/* Show medical history if has_ems_interest is true OR if medical_history exists with any data */}
+                        {fullProfile?.medical_history && (
+                            fullProfile.medical_history.has_ems_interest || 
+                            fullProfile.medical_history.ems_contraindications ||
+                            fullProfile.medical_history.ems_liability_accepted !== undefined
+                        ) && (
                             <MedicalHistorySection medicalHistory={fullProfile.medical_history} />
                         )}
 

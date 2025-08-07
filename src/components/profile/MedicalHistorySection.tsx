@@ -18,20 +18,30 @@ export function MedicalHistorySection({ medicalHistory }: MedicalHistorySectionP
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="space-y-3">
-          <div className="flex items-center gap-2">
-            <UserCheck className="h-4 w-4 text-green-600" />
-            <span className="text-sm font-medium">Ενδιαφέρον για EMS: Ναι</span>
-          </div>
-          <div className="flex items-center gap-2">
-            {medicalHistory.ems_liability_accepted ? (
-              <UserCheck className="h-4 w-4 text-green-600" />
-            ) : (
-              <AlertTriangle className="h-4 w-4 text-yellow-600" />
-            )}
-            <span className="text-sm font-medium">
-              Αποδοχή Δήλωσης EMS: {medicalHistory.ems_liability_accepted ? "Ναι" : "Όχι"}
-            </span>
-          </div>
+          {medicalHistory.has_ems_interest !== undefined && (
+            <div className="flex items-center gap-2">
+              {medicalHistory.has_ems_interest ? (
+                <UserCheck className="h-4 w-4 text-green-600" />
+              ) : (
+                <AlertTriangle className="h-4 w-4 text-gray-400" />
+              )}
+              <span className="text-sm font-medium">
+                Ενδιαφέρον για EMS: {medicalHistory.has_ems_interest ? "Ναι" : "Όχι"}
+              </span>
+            </div>
+          )}
+          {medicalHistory.ems_liability_accepted !== undefined && (
+            <div className="flex items-center gap-2">
+              {medicalHistory.ems_liability_accepted ? (
+                <UserCheck className="h-4 w-4 text-green-600" />
+              ) : (
+                <AlertTriangle className="h-4 w-4 text-yellow-600" />
+              )}
+              <span className="text-sm font-medium">
+                Αποδοχή Δήλωσης EMS: {medicalHistory.ems_liability_accepted ? "Ναι" : "Όχι"}
+              </span>
+            </div>
+          )}
         </div>
         
         {medicalHistory.ems_contraindications && (
