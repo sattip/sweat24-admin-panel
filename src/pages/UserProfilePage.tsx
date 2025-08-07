@@ -124,12 +124,14 @@ export function UserProfilePage() {
             ]);
             
             if (userData.status === 'fulfilled') {
+                alert('DEBUG: User data loaded. Check console for details.');
                 console.log('User data from getById:', userData.value);
                 setUser(userData.value);
                 setUserPackages(userData.value.packages || []);
                 
                 // Check if medical_history is in the user data itself
                 if (userData.value.medical_history) {
+                    alert('DEBUG: Medical history found! Type: ' + typeof userData.value.medical_history);
                     console.log('Medical history found in user data:', userData.value.medical_history);
                     console.log('Type of medical_history:', typeof userData.value.medical_history);
                     
@@ -502,13 +504,19 @@ export function UserProfilePage() {
                         )}
 
                         {/* Medical History - EMS */}
-                        {console.log('=== MEDICAL HISTORY RENDERING CHECK ===')}
-                        {console.log('fullProfile exists?', !!fullProfile)}
-                        {console.log('fullProfile:', fullProfile)}
-                        {console.log('medical_history exists?', !!fullProfile?.medical_history)}
-                        {console.log('medical_history:', fullProfile?.medical_history)}
-                        {console.log('has_ems_interest:', fullProfile?.medical_history?.has_ems_interest)}
-                        {console.log('Condition result:', !!(fullProfile?.medical_history))}
+                        {(() => {
+                            console.log('=== MEDICAL HISTORY RENDERING CHECK ===');
+                            console.log('fullProfile exists?', !!fullProfile);
+                            console.log('fullProfile:', fullProfile);
+                            console.log('medical_history exists?', !!fullProfile?.medical_history);
+                            console.log('medical_history:', fullProfile?.medical_history);
+                            console.log('has_ems_interest:', fullProfile?.medical_history?.has_ems_interest);
+                            console.log('Condition result:', !!(fullProfile?.medical_history));
+                            if (fullProfile?.medical_history) {
+                                console.log('RENDERING MedicalHistorySection NOW!');
+                            }
+                            return null;
+                        })()}
                         {/* Show medical history if it exists */}
                         {fullProfile?.medical_history && (
                             <MedicalHistorySection medicalHistory={fullProfile.medical_history} />
