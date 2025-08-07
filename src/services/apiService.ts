@@ -30,6 +30,10 @@ export const usersApi = {
     return apiRequest(`${API_CONFIG.ENDPOINTS.USERS}/${id}`);
   },
 
+  getFullProfile: async (id: string): Promise<any> => {
+    return apiRequest(`/api/admin/users/${id}/full-profile`);
+  },
+
   create: async (userData: Partial<User>): Promise<User> => {
     return apiRequest(API_CONFIG.ENDPOINTS.USERS, {
       method: 'POST',
