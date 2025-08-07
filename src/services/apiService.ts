@@ -34,14 +34,11 @@ export const usersApi = {
   getFullProfile: async (id: string): Promise<FullUserProfile> => {
     try {
       const response = await apiRequest(`/api/admin/users/${id}/full-profile`);
-      console.log('Raw API response for full profile:', response);
       
       // Normalize the response - handle both direct data and wrapped response
       if (response && typeof response === 'object') {
         // If response has a 'data' property, use it, otherwise use the response directly
         const profileData = response.data || response;
-        console.log('Normalized profile data:', profileData);
-        console.log('Medical history in normalized data:', profileData.medical_history);
         
         // Transform medical_history to match our MedicalHistory interface
         if (profileData.medical_history) {
@@ -68,8 +65,6 @@ export const usersApi = {
               emergency_contact: parsedHistory.emergency_contact
             }
           };
-          
-          console.log('Transformed medical history:', profileData.medical_history);
         }
         
         return profileData as FullUserProfile;
@@ -155,9 +150,7 @@ export const bookingsApi = {
     if (params?.instructor) queryParams.append('instructor', params.instructor);
     
     const endpoint = `${API_CONFIG.ENDPOINTS.BOOKINGS}${queryParams.toString() ? '?' + queryParams.toString() : ''}`;
-    console.log('🔗 BookingsApi.getAll: Calling endpoint:', endpoint);
     const result = await apiRequest(endpoint);
-    console.log('📦 BookingsApi.getAll: Received result:', result);
     return result;
   },
 
@@ -472,17 +465,10 @@ export const bookingRequestsApi = {
     console.log('🔍 Fetching booking requests from:', '/api/v1/admin/booking-requests');
     console.log('🔑 Auth token exists:', !!localStorage.getItem('auth-token'));
     
-    // Debug alert to ensure we reach this point
-    if (!window.bookingRequestsApiCalled) {
-      window.bookingRequestsApiCalled = true;
-      console.warn('🚨 BOOKING REQUESTS API CALLED - Check network tab!');
-    }
-    
     return apiRequest('/api/v1/admin/booking-requests');
   },
 
   confirm: async (id: string, data: { date: string; time: string; instructor_id?: string }): Promise<{ message: string; booking?: any }> => {
-    console.log('✅ Confirming booking request:', id, data);
     return apiRequest(`/api/v1/admin/booking-requests/${id}/confirm`, {
       method: 'POST',
       body: JSON.stringify(data)
@@ -490,7 +476,6 @@ export const bookingRequestsApi = {
   },
 
   reject: async (id: string, data: { reason: string }): Promise<{ message: string }> => {
-    console.log('❌ Rejecting booking request:', id, data);
     return apiRequest(`/api/v1/admin/booking-requests/${id}/reject`, {
       method: 'POST',
       body: JSON.stringify(data)

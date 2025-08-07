@@ -70,7 +70,6 @@ export function UserProfilePage() {
                 description: response.message || "Ο χρήστης εγκρίθηκε επιτυχώς.",
             });
             // Force refresh user data to update status
-            console.log('Approval response:', response);
             await fetchUserData();
             // Small delay to ensure backend has processed the change
             setTimeout(async () => {
@@ -124,13 +123,11 @@ export function UserProfilePage() {
             ]);
             
             if (userData.status === 'fulfilled') {
-                console.log('User data from getById:', userData.value);
                 setUser(userData.value);
                 setUserPackages(userData.value.packages || []);
                 
                 // Check if medical_history is in the user data itself
                 if (userData.value.medical_history) {
-                    console.log('Medical history found in user data:', userData.value.medical_history);
                     // Transform and set it as fullProfile's medical_history
                     const medicalHistoryData = typeof userData.value.medical_history === 'string' 
                         ? JSON.parse(userData.value.medical_history) 
@@ -167,16 +164,7 @@ export function UserProfilePage() {
             }
             
             if (fullProfileResponse.status === 'fulfilled') {
-                console.log('Full profile data received:', fullProfileResponse.value);
                 setFullProfile(fullProfileResponse.value);
-                
-                // Debug logging for medical history
-                if (fullProfileResponse.value?.medical_history) {
-                    console.log('Medical history found:', fullProfileResponse.value.medical_history);
-                    console.log('Has EMS interest:', fullProfileResponse.value.medical_history.has_ems_interest);
-                } else {
-                    console.log('No medical history in response');
-                }
             } else {
                 // Log the error but don't show toast as full profile is optional enhancement
                 console.warn('Failed to fetch full profile (optional):', fullProfileResponse.reason);
@@ -492,9 +480,6 @@ export function UserProfilePage() {
                         )}
 
                         {/* Medical History - EMS */}
-                        {console.log('Rendering check - fullProfile:', fullProfile)}
-                        {console.log('Rendering check - medical_history:', fullProfile?.medical_history)}
-                        {console.log('Rendering check - has_ems_interest:', fullProfile?.medical_history?.has_ems_interest)}
                         {/* Show medical history if it exists */}
                         {fullProfile?.medical_history && (
                             <MedicalHistorySection medicalHistory={fullProfile.medical_history} />
