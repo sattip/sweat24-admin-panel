@@ -36,6 +36,10 @@ import { notifyPackageExtension } from "@/utils/notifications";
 import { PaymentInstallmentsModal } from "@/components/PaymentInstallmentsModal";
 import SignatureDisplay from "@/components/SignatureDisplay";
 import { apiService, usersApi } from "@/services/apiService";
+import type { FullUserProfile } from "@/types/userProfile";
+import { GuardianDetailsSection } from "@/components/profile/GuardianDetailsSection";
+import { MedicalHistorySection } from "@/components/profile/MedicalHistorySection";
+import { ReferralInfoSection } from "@/components/profile/ReferralInfoSection";
 
 
 export function UserProfilePage() {
@@ -43,6 +47,7 @@ export function UserProfilePage() {
     const { toast } = useToast();
     
     const [user, setUser] = useState<UserType | undefined>(undefined);
+    const [fullProfile, setFullProfile] = useState<FullUserProfile | null>(null);
     const [loading, setLoading] = useState(true);
     const [userPackages, setUserPackages] = useState<UserPackage[]>([]);
     const [signatures, setSignatures] = useState<any[]>([]);
@@ -112,14 +117,35 @@ export function UserProfilePage() {
         
         setLoading(true);
         try {
-            const userData = await usersApi.getById(userId);
-            setUser(userData);
-            setUserPackages(userData.packages || []);
+            // Fetch both user data and full profile in parallel
+            const [userData, fullProfileResponse] = await Promise.allSettled([
+                usersApi.getById(userId),
+                usersApi.getFullProfile(userId)
+            ]);
+            
+            if (userData.status === 'fulfilled') {
+                setUser(userData.value);
+                setUserPackages(userData.value.packages || []);
+            } else {
+                console.error('Failed to fetch user data:', userData.reason);
+                toast({
+                    title: "Σφάλμα",
+                    description: "Αποτυχία φόρτωσης βασικών δεδομένων χρήστη.",
+                    variant: "destructive"
+                });
+            }
+            
+            if (fullProfileResponse.status === 'fulfilled') {
+                setFullProfile(fullProfileResponse.value);
+            } else {
+                // Log the error but don't show toast as full profile is optional enhancement
+                console.warn('Failed to fetch full profile (optional):', fullProfileResponse.reason);
+            }
         } catch (error) {
-            console.error('Error fetching user:', error);
+            console.error('Unexpected error in fetchUserData:', error);
             toast({
                 title: "Σφάλμα",
-                description: "Αποτυχία φόρτωσης δεδομένων χρήστη.",
+                description: "Απροσδόκητο σφάλμα κατά τη φόρτωση δεδομένων.",
                 variant: "destructive"
             });
         } finally {
@@ -366,6 +392,16 @@ export function UserProfilePage() {
                                             <User className="h-4 w-4" /> 
                                             Τύπος Συνδρομής: <span className="font-medium">{user.membershipType}</span>
                                         </div>
+                                        {fullProfile?.signature_url && (
+                                            <div className="mt-3">
+                                                <p className="text-sm font-medium mb-2">Υπογραφή Χρήστη:</p>
+                                                <img 
+                                                    src={fullProfile.signature_url} 
+                                                    alt="Υπογραφή Χρήστη" 
+                                                    className="max-w-[200px] border rounded p-2"
+                                                />
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                                 <div className="flex gap-2 flex-wrap">
@@ -409,6 +445,21 @@ export function UserProfilePage() {
                                 </div>
                             </CardContent>
                         </Card>
+
+                        {/* Guardian Details - Only show if user is minor */}
+                        {fullProfile?.is_minor && fullProfile?.guardian_details && (
+                            <GuardianDetailsSection guardianDetails={fullProfile.guardian_details} />
+                        )}
+
+                        {/* Medical History - EMS */}
+                        {fullProfile?.medical_history?.has_ems_interest && (
+                            <MedicalHistorySection medicalHistory={fullProfile.medical_history} />
+                        )}
+
+                        {/* Referral Information */}
+                        {fullProfile?.found_us_via && (
+                            <ReferralInfoSection foundUsVia={fullProfile.found_us_via} />
+                        )}
 
                         {/* User Packages */}
                         <Card>
