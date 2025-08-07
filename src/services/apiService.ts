@@ -34,11 +34,14 @@ export const usersApi = {
   getFullProfile: async (id: string): Promise<FullUserProfile> => {
     try {
       const response = await apiRequest(`/api/admin/users/${id}/full-profile`);
+      console.log('Raw API response for full profile:', response);
       
       // Normalize the response - handle both direct data and wrapped response
       if (response && typeof response === 'object') {
         // If response has a 'data' property, use it, otherwise use the response directly
         const profileData = response.data || response;
+        console.log('Normalized profile data:', profileData);
+        console.log('Medical history in normalized data:', profileData.medical_history);
         return profileData as FullUserProfile;
       }
       

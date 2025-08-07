@@ -37,9 +37,9 @@ export interface OtherMedicalData {
 }
 
 export interface MedicalHistory {
-  has_ems_interest: boolean;
+  has_ems_interest?: boolean;
   ems_contraindications?: Record<string, EMSContraindication>;
-  ems_liability_accepted: boolean;
+  ems_liability_accepted?: boolean;
   other_medical_data?: OtherMedicalData;
 }
 
