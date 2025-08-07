@@ -640,7 +640,7 @@ export default function ReferralProgramPage() {
                         
                         {/* Διάρκεια σε ημέρες - ΑΠΛΟΠΟΙΗΜΕΝΗ ΜΟΡΦΗ */}
                         <div>
-                          <Label htmlFor="loyalty-duration-days">Διάρκεια (ημέρες)</Label>
+                          <Label htmlFor="loyalty-duration-days">🔥 ΝΕΟΣ ΚΩΔΙΚΑΣ v21.0 🔥 Διάρκεια (ημέρες)</Label>
                           <Input
                             id="loyalty-duration-days"
                             type="number"
@@ -759,7 +759,7 @@ export default function ReferralProgramPage() {
                         
                         {/* Διάρκεια σε ημέρες - ΑΠΛΟΠΟΙΗΜΕΝΗ ΜΟΡΦΗ */}
                         <div>
-                          <Label htmlFor="tier-duration-days">Διάρκεια (ημέρες)</Label>
+                          <Label htmlFor="tier-duration-days">🔥 ΝΕΟΣ ΚΩΔΙΚΑΣ v21.0 🔥 Διάρκεια (ημέρες)</Label>
                           <Input
                             id="tier-duration-days"
                             type="number"
