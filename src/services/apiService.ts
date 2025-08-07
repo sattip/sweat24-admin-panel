@@ -10,6 +10,7 @@ import type {
   BusinessExpense,
   UserPackage 
 } from '../data/mockData';
+import type { FullUserProfile, FullUserProfileResponse } from '../types/userProfile';
 
 // Users API
 export const usersApi = {
@@ -30,8 +31,22 @@ export const usersApi = {
     return apiRequest(`${API_CONFIG.ENDPOINTS.USERS}/${id}`);
   },
 
-  getFullProfile: async (id: string): Promise<any> => {
-    return apiRequest(`/api/admin/users/${id}/full-profile`);
+  getFullProfile: async (id: string): Promise<FullUserProfile> => {
+    try {
+      const response = await apiRequest(`/api/admin/users/${id}/full-profile`);
+      
+      // Normalize the response - handle both direct data and wrapped response
+      if (response && typeof response === 'object') {
+        // If response has a 'data' property, use it, otherwise use the response directly
+        const profileData = response.data || response;
+        return profileData as FullUserProfile;
+      }
+      
+      throw new Error('Invalid response format from full profile API');
+    } catch (error) {
+      console.error(`Error fetching full profile for user ${id}:`, error);
+      throw error;
+    }
   },
 
   create: async (userData: Partial<User>): Promise<User> => {

@@ -30,12 +30,16 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
-import { Calendar as CalendarIcon, User, Mail, Phone, ArrowLeft, Package, Plus, Play, Pause, History, CalendarPlus, CreditCard, Edit, CheckCircle, XCircle, Clock, AlertTriangle, Check, X, Users, Heart, UserCheck, Share2 } from "lucide-react";
+import { Calendar as CalendarIcon, User, Mail, Phone, ArrowLeft, Package, Plus, Play, Pause, History, CalendarPlus, CreditCard, Edit, CheckCircle, XCircle, Clock, AlertTriangle, Check, X } from "lucide-react";
 import type { User as UserType, UserPackage } from "@/data/mockData";
 import { notifyPackageExtension } from "@/utils/notifications";
 import { PaymentInstallmentsModal } from "@/components/PaymentInstallmentsModal";
 import SignatureDisplay from "@/components/SignatureDisplay";
 import { apiService, usersApi } from "@/services/apiService";
+import type { FullUserProfile } from "@/types/userProfile";
+import { GuardianDetailsSection } from "@/components/profile/GuardianDetailsSection";
+import { MedicalHistorySection } from "@/components/profile/MedicalHistorySection";
+import { ReferralInfoSection } from "@/components/profile/ReferralInfoSection";
 
 
 export function UserProfilePage() {
@@ -43,7 +47,7 @@ export function UserProfilePage() {
     const { toast } = useToast();
     
     const [user, setUser] = useState<UserType | undefined>(undefined);
-    const [fullProfile, setFullProfile] = useState<any>(null);
+    const [fullProfile, setFullProfile] = useState<FullUserProfile | null>(null);
     const [loading, setLoading] = useState(true);
     const [userPackages, setUserPackages] = useState<UserPackage[]>([]);
     const [signatures, setSignatures] = useState<any[]>([]);
@@ -122,18 +126,26 @@ export function UserProfilePage() {
             if (userData.status === 'fulfilled') {
                 setUser(userData.value);
                 setUserPackages(userData.value.packages || []);
+            } else {
+                console.error('Failed to fetch user data:', userData.reason);
+                toast({
+                    title: "Σφάλμα",
+                    description: "Αποτυχία φόρτωσης βασικών δεδομένων χρήστη.",
+                    variant: "destructive"
+                });
             }
             
             if (fullProfileResponse.status === 'fulfilled') {
-                // Handle both response formats
-                const profileData = fullProfileResponse.value.data || fullProfileResponse.value;
-                setFullProfile(profileData);
+                setFullProfile(fullProfileResponse.value);
+            } else {
+                // Log the error but don't show toast as full profile is optional enhancement
+                console.warn('Failed to fetch full profile (optional):', fullProfileResponse.reason);
             }
         } catch (error) {
-            console.error('Error fetching user:', error);
+            console.error('Unexpected error in fetchUserData:', error);
             toast({
                 title: "Σφάλμα",
-                description: "Αποτυχία φόρτωσης δεδομένων χρήστη.",
+                description: "Απροσδόκητο σφάλμα κατά τη φόρτωση δεδομένων.",
                 variant: "destructive"
             });
         } finally {
@@ -436,178 +448,17 @@ export function UserProfilePage() {
 
                         {/* Guardian Details - Only show if user is minor */}
                         {fullProfile?.is_minor && fullProfile?.guardian_details && (
-                            <Card>
-                                <CardHeader>
-                                    <CardTitle className="flex items-center gap-2">
-                                        <Users className="h-5 w-5" />
-                                        Στοιχεία Ανήλικου & Κηδεμόνα
-                                    </CardTitle>
-                                    <CardDescription>Στοιχεία κηδεμόνα για ανήλικο μέλος</CardDescription>
-                                </CardHeader>
-                                <CardContent className="space-y-4">
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div className="space-y-2">
-                                            <p className="text-sm font-medium text-muted-foreground">Ονοματεπώνυμο Κηδεμόνα</p>
-                                            <p className="text-sm">{fullProfile.guardian_details.full_name}</p>
-                                        </div>
-                                        <div className="space-y-2">
-                                            <p className="text-sm font-medium text-muted-foreground">ΑΔΤ/Διαβατήριο</p>
-                                            <p className="text-sm">{fullProfile.guardian_details.id_number}</p>
-                                        </div>
-                                        <div className="space-y-2">
-                                            <p className="text-sm font-medium text-muted-foreground">Όνομα Πατέρα</p>
-                                            <p className="text-sm">{fullProfile.guardian_details.father_name}</p>
-                                        </div>
-                                        <div className="space-y-2">
-                                            <p className="text-sm font-medium text-muted-foreground">Όνομα Μητέρας</p>
-                                            <p className="text-sm">{fullProfile.guardian_details.mother_name}</p>
-                                        </div>
-                                        <div className="space-y-2">
-                                            <p className="text-sm font-medium text-muted-foreground">Ημερομηνία Γέννησης</p>
-                                            <p className="text-sm">{new Date(fullProfile.guardian_details.birth_date).toLocaleDateString('el-GR')}</p>
-                                        </div>
-                                        <div className="space-y-2">
-                                            <p className="text-sm font-medium text-muted-foreground">Τηλέφωνο</p>
-                                            <p className="text-sm">{fullProfile.guardian_details.phone}</p>
-                                        </div>
-                                        <div className="space-y-2">
-                                            <p className="text-sm font-medium text-muted-foreground">Email</p>
-                                            <p className="text-sm">{fullProfile.guardian_details.email}</p>
-                                        </div>
-                                        <div className="space-y-2">
-                                            <p className="text-sm font-medium text-muted-foreground">Διεύθυνση</p>
-                                            <p className="text-sm">{fullProfile.guardian_details.address}, {fullProfile.guardian_details.city} {fullProfile.guardian_details.zip_code}</p>
-                                        </div>
-                                    </div>
-                                    {fullProfile.guardian_details.signature_url && (
-                                        <div className="pt-4 border-t">
-                                            <p className="text-sm font-medium text-muted-foreground mb-2">Υπογραφή Κηδεμόνα</p>
-                                            <img 
-                                                src={fullProfile.guardian_details.signature_url} 
-                                                alt="Υπογραφή Κηδεμόνα" 
-                                                className="max-w-xs border rounded p-2"
-                                            />
-                                        </div>
-                                    )}
-                                </CardContent>
-                            </Card>
+                            <GuardianDetailsSection guardianDetails={fullProfile.guardian_details} />
                         )}
 
                         {/* Medical History - EMS */}
                         {fullProfile?.medical_history?.has_ems_interest && (
-                            <Card>
-                                <CardHeader>
-                                    <CardTitle className="flex items-center gap-2">
-                                        <Heart className="h-5 w-5" />
-                                        Ιατρικό Ιστορικό - EMS
-                                    </CardTitle>
-                                    <CardDescription>Στοιχεία για την ηλεκτρική μυϊκή διέγερση (EMS)</CardDescription>
-                                </CardHeader>
-                                <CardContent className="space-y-4">
-                                    <div className="space-y-3">
-                                        <div className="flex items-center gap-2">
-                                            <UserCheck className="h-4 w-4 text-green-600" />
-                                            <span className="text-sm font-medium">Ενδιαφέρον για EMS: Ναι</span>
-                                        </div>
-                                        <div className="flex items-center gap-2">
-                                            {fullProfile.medical_history.ems_liability_accepted ? (
-                                                <UserCheck className="h-4 w-4 text-green-600" />
-                                            ) : (
-                                                <AlertTriangle className="h-4 w-4 text-yellow-600" />
-                                            )}
-                                            <span className="text-sm font-medium">
-                                                Αποδοχή Δήλωσης EMS: {fullProfile.medical_history.ems_liability_accepted ? "Ναι" : "Όχι"}
-                                            </span>
-                                        </div>
-                                    </div>
-                                    
-                                    {fullProfile.medical_history.ems_contraindications && (
-                                        <div className="pt-4 border-t">
-                                            <p className="text-sm font-medium text-muted-foreground mb-3">Αντενδείξεις EMS</p>
-                                            <div className="space-y-2">
-                                                {Object.entries(fullProfile.medical_history.ems_contraindications).map(([condition, data]: [string, any]) => (
-                                                    <div key={condition} className="flex items-start gap-2">
-                                                        {data.has_condition ? (
-                                                            <AlertTriangle className="h-4 w-4 text-red-600 mt-0.5" />
-                                                        ) : (
-                                                            <div className="h-4 w-4 rounded-full border-2 border-gray-300 mt-0.5" />
-                                                        )}
-                                                        <div className="flex-1">
-                                                            <p className={`text-sm ${data.has_condition ? 'font-medium' : 'text-muted-foreground'}`}>
-                                                                {condition}
-                                                            </p>
-                                                            {data.has_condition && data.year_of_onset && (
-                                                                <p className="text-xs text-muted-foreground">Έτος έναρξης: {data.year_of_onset}</p>
-                                                            )}
-                                                        </div>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    {fullProfile.medical_history.other_medical_data && (
-                                        <div className="pt-4 border-t">
-                                            <p className="text-sm font-medium text-muted-foreground mb-2">Επιπλέον Ιατρικά Στοιχεία</p>
-                                            {fullProfile.medical_history.other_medical_data.medical_conditions?.medical_history && (
-                                                <p className="text-sm mb-2">{fullProfile.medical_history.other_medical_data.medical_conditions.medical_history}</p>
-                                            )}
-                                            {fullProfile.medical_history.other_medical_data.emergency_contact && (
-                                                <div className="text-sm">
-                                                    <span className="font-medium">Επείγουσα Επαφή: </span>
-                                                    {fullProfile.medical_history.other_medical_data.emergency_contact.name} - {fullProfile.medical_history.other_medical_data.emergency_contact.phone}
-                                                </div>
-                                            )}
-                                        </div>
-                                    )}
-                                </CardContent>
-                            </Card>
+                            <MedicalHistorySection medicalHistory={fullProfile.medical_history} />
                         )}
 
                         {/* Referral Information */}
                         {fullProfile?.found_us_via && (
-                            <Card>
-                                <CardHeader>
-                                    <CardTitle className="flex items-center gap-2">
-                                        <Share2 className="h-5 w-5" />
-                                        Πώς μας βρήκατε;
-                                    </CardTitle>
-                                    <CardDescription>Πηγή σύστασης και προσέλκυσης πελάτη</CardDescription>
-                                </CardHeader>
-                                <CardContent>
-                                    <div className="space-y-3">
-                                        <div className="flex items-center gap-2">
-                                            <span className="text-sm font-medium text-muted-foreground">Πηγή:</span>
-                                            <Badge variant="outline">{fullProfile.found_us_via.source}</Badge>
-                                        </div>
-                                        
-                                        {fullProfile.found_us_via.referrer_info && (
-                                            <div className="pt-3 border-t space-y-2">
-                                                <p className="text-sm font-medium text-muted-foreground">Στοιχεία Σύστασης</p>
-                                                <div className="grid grid-cols-2 gap-4">
-                                                    <div className="space-y-1">
-                                                        <p className="text-xs text-muted-foreground">Όνομα Συστήσαντος</p>
-                                                        <p className="text-sm font-medium">{fullProfile.found_us_via.referrer_info.referrer_name}</p>
-                                                    </div>
-                                                    <div className="space-y-1">
-                                                        <p className="text-xs text-muted-foreground">Κωδικός/Όνομα που Χρησιμοποιήθηκε</p>
-                                                        <p className="text-sm font-medium">{fullProfile.found_us_via.referrer_info.code_or_name_used}</p>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        )}
-                                        
-                                        {fullProfile.found_us_via.sub_source && (
-                                            <div className="pt-3 border-t">
-                                                <div className="flex items-center gap-2">
-                                                    <span className="text-sm font-medium text-muted-foreground">Πλατφόρμα:</span>
-                                                    <Badge variant="outline">{fullProfile.found_us_via.sub_source}</Badge>
-                                                </div>
-                                            </div>
-                                        )}
-                                    </div>
-                                </CardContent>
-                            </Card>
+                            <ReferralInfoSection foundUsVia={fullProfile.found_us_via} />
                         )}
 
                         {/* User Packages */}
