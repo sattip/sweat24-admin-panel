@@ -469,20 +469,10 @@ export const bookingRequestsApi = {
       user?: User;
     }>;
   }> => {
-    console.log('🔍 Fetching booking requests from:', '/api/v1/admin/booking-requests');
-    console.log('🔑 Auth token exists:', !!localStorage.getItem('auth-token'));
-    
-    // Debug alert to ensure we reach this point
-    if (!window.bookingRequestsApiCalled) {
-      window.bookingRequestsApiCalled = true;
-      console.warn('🚨 BOOKING REQUESTS API CALLED - Check network tab!');
-    }
-    
     return apiRequest('/api/v1/admin/booking-requests');
   },
 
   confirm: async (id: string, data: { date: string; time: string; instructor_id?: string }): Promise<{ message: string; booking?: any }> => {
-    console.log('✅ Confirming booking request:', id, data);
     return apiRequest(`/api/v1/admin/booking-requests/${id}/confirm`, {
       method: 'POST',
       body: JSON.stringify(data)
@@ -490,7 +480,6 @@ export const bookingRequestsApi = {
   },
 
   reject: async (id: string, data: { reason: string }): Promise<{ message: string }> => {
-    console.log('❌ Rejecting booking request:', id, data);
     return apiRequest(`/api/v1/admin/booking-requests/${id}/reject`, {
       method: 'POST',
       body: JSON.stringify(data)

@@ -70,7 +70,6 @@ export function UserProfilePage() {
                 description: response.message || "Ο χρήστης εγκρίθηκε επιτυχώς.",
             });
             // Force refresh user data to update status
-            console.log('Approval response:', response);
             await fetchUserData();
             // Small delay to ensure backend has processed the change
             setTimeout(async () => {
@@ -124,23 +123,15 @@ export function UserProfilePage() {
             ]);
             
             if (userData.status === 'fulfilled') {
-                alert('DEBUG: User data loaded. Check console for details.');
-                console.log('User data from getById:', userData.value);
                 setUser(userData.value);
                 setUserPackages(userData.value.packages || []);
                 
                 // Check if medical_history is in the user data itself
                 if (userData.value.medical_history) {
-                    alert('DEBUG: Medical history found! Type: ' + typeof userData.value.medical_history);
-                    console.log('Medical history found in user data:', userData.value.medical_history);
-                    console.log('Type of medical_history:', typeof userData.value.medical_history);
-                    
                     // Transform and set it as fullProfile's medical_history
                     const medicalHistoryData = typeof userData.value.medical_history === 'string' 
                         ? JSON.parse(userData.value.medical_history) 
                         : userData.value.medical_history;
-                    
-                    console.log('Parsed medical history data:', medicalHistoryData);
                     
                     const transformedMedicalHistory = {
                         has_ems_interest: medicalHistoryData.ems_interest === true,
@@ -152,22 +143,16 @@ export function UserProfilePage() {
                         }
                     };
                     
-                    console.log('Transformed medical history:', transformedMedicalHistory);
-                    
                     // Set a minimal fullProfile if we don't have one yet
-                    setFullProfile(prev => {
-                        const newProfile = {
-                            ...prev,
-                            id: userData.value.id,
-                            full_name: userData.value.name,
-                            email: userData.value.email,
-                            is_minor: userData.value.is_minor || false,
-                            registration_date: userData.value.created_at,
-                            medical_history: transformedMedicalHistory
-                        };
-                        console.log('Setting fullProfile with medical history:', newProfile);
-                        return newProfile;
-                    });
+                    setFullProfile(prev => ({
+                        ...prev,
+                        id: userData.value.id,
+                        full_name: userData.value.name,
+                        email: userData.value.email,
+                        is_minor: userData.value.is_minor || false,
+                        registration_date: userData.value.created_at,
+                        medical_history: transformedMedicalHistory
+                    }));
                 }
             } else {
                 console.error('Failed to fetch user data:', userData.reason);
@@ -179,16 +164,7 @@ export function UserProfilePage() {
             }
             
             if (fullProfileResponse.status === 'fulfilled') {
-                console.log('Full profile data received:', fullProfileResponse.value);
                 setFullProfile(fullProfileResponse.value);
-                
-                // Debug logging for medical history
-                if (fullProfileResponse.value?.medical_history) {
-                    console.log('Medical history found:', fullProfileResponse.value.medical_history);
-                    console.log('Has EMS interest:', fullProfileResponse.value.medical_history.has_ems_interest);
-                } else {
-                    console.log('No medical history in response');
-                }
             } else {
                 // Log the error but don't show toast as full profile is optional enhancement
                 console.warn('Failed to fetch full profile (optional):', fullProfileResponse.reason);
@@ -504,19 +480,6 @@ export function UserProfilePage() {
                         )}
 
                         {/* Medical History - EMS */}
-                        {(() => {
-                            console.log('=== MEDICAL HISTORY RENDERING CHECK ===');
-                            console.log('fullProfile exists?', !!fullProfile);
-                            console.log('fullProfile:', fullProfile);
-                            console.log('medical_history exists?', !!fullProfile?.medical_history);
-                            console.log('medical_history:', fullProfile?.medical_history);
-                            console.log('has_ems_interest:', fullProfile?.medical_history?.has_ems_interest);
-                            console.log('Condition result:', !!(fullProfile?.medical_history));
-                            if (fullProfile?.medical_history) {
-                                console.log('RENDERING MedicalHistorySection NOW!');
-                            }
-                            return null;
-                        })()}
                         {/* Show medical history if it exists */}
                         {fullProfile?.medical_history && (
                             <MedicalHistorySection medicalHistory={fullProfile.medical_history} />
