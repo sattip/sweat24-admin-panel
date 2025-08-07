@@ -42,6 +42,36 @@ export const usersApi = {
         const profileData = response.data || response;
         console.log('Normalized profile data:', profileData);
         console.log('Medical history in normalized data:', profileData.medical_history);
+        
+        // Transform medical_history to match our MedicalHistory interface
+        if (profileData.medical_history) {
+          const rawMedicalHistory = profileData.medical_history;
+          
+          // Parse if it's a string
+          let parsedHistory = rawMedicalHistory;
+          if (typeof rawMedicalHistory === 'string') {
+            try {
+              parsedHistory = JSON.parse(rawMedicalHistory);
+            } catch (e) {
+              console.error('Failed to parse medical history string:', e);
+              parsedHistory = {};
+            }
+          }
+          
+          // Transform to match MedicalHistory interface
+          profileData.medical_history = {
+            has_ems_interest: parsedHistory.ems_interest === true,
+            ems_liability_accepted: parsedHistory.ems_liability_accepted === true,
+            ems_contraindications: parsedHistory.ems_contraindications || {},
+            other_medical_data: {
+              medical_conditions: parsedHistory.medical_conditions,
+              emergency_contact: parsedHistory.emergency_contact
+            }
+          };
+          
+          console.log('Transformed medical history:', profileData.medical_history);
+        }
+        
         return profileData as FullUserProfile;
       }
       
