@@ -124,8 +124,39 @@ export function UserProfilePage() {
             ]);
             
             if (userData.status === 'fulfilled') {
+                console.log('User data from getById:', userData.value);
                 setUser(userData.value);
                 setUserPackages(userData.value.packages || []);
+                
+                // Check if medical_history is in the user data itself
+                if (userData.value.medical_history) {
+                    console.log('Medical history found in user data:', userData.value.medical_history);
+                    // Transform and set it as fullProfile's medical_history
+                    const medicalHistoryData = typeof userData.value.medical_history === 'string' 
+                        ? JSON.parse(userData.value.medical_history) 
+                        : userData.value.medical_history;
+                    
+                    const transformedMedicalHistory = {
+                        has_ems_interest: medicalHistoryData.ems_interest === true,
+                        ems_liability_accepted: medicalHistoryData.ems_liability_accepted === true,
+                        ems_contraindications: medicalHistoryData.ems_contraindications || {},
+                        other_medical_data: {
+                            medical_conditions: medicalHistoryData.medical_conditions,
+                            emergency_contact: medicalHistoryData.emergency_contact
+                        }
+                    };
+                    
+                    // Set a minimal fullProfile if we don't have one yet
+                    setFullProfile(prev => ({
+                        ...prev,
+                        id: userData.value.id,
+                        full_name: userData.value.name,
+                        email: userData.value.email,
+                        is_minor: userData.value.is_minor || false,
+                        registration_date: userData.value.created_at,
+                        medical_history: transformedMedicalHistory
+                    }));
+                }
             } else {
                 console.error('Failed to fetch user data:', userData.reason);
                 toast({
@@ -464,12 +495,8 @@ export function UserProfilePage() {
                         {console.log('Rendering check - fullProfile:', fullProfile)}
                         {console.log('Rendering check - medical_history:', fullProfile?.medical_history)}
                         {console.log('Rendering check - has_ems_interest:', fullProfile?.medical_history?.has_ems_interest)}
-                        {/* Show medical history if has_ems_interest is true OR if medical_history exists with any data */}
+                        {/* Show medical history if it exists */}
                         {fullProfile?.medical_history && (
-                            fullProfile.medical_history.has_ems_interest || 
-                            fullProfile.medical_history.ems_contraindications ||
-                            fullProfile.medical_history.ems_liability_accepted !== undefined
-                        ) && (
                             <MedicalHistorySection medicalHistory={fullProfile.medical_history} />
                         )}
 
