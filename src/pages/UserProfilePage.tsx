@@ -35,6 +35,7 @@ import type { User as UserType, UserPackage } from "@/data/mockData";
 import { notifyPackageExtension } from "@/utils/notifications";
 import { PaymentInstallmentsModal } from "@/components/PaymentInstallmentsModal";
 import SignatureDisplay from "@/components/SignatureDisplay";
+import { AssignPackageForm } from "@/components/AssignPackageForm";
 import { apiService, usersApi } from "@/services/apiService";
 import type { FullUserProfile } from "@/types/userProfile";
 import { GuardianDetailsSection } from "@/components/profile/GuardianDetailsSection";
@@ -58,6 +59,26 @@ export function UserProfilePage() {
             fetchUserData();
             fetchSignatures();
         }
+    }, [userId]);
+
+    // Άκου μια παγκόσμια ειδοποίηση κατανάλωσης συνεδρίας για να ενημερώνεται άμεσα η λίστα πακέτων
+    useEffect(() => {
+        const handler = (e: Event) => {
+            const detail = (e as CustomEvent).detail as { userId?: string; delta?: number } | undefined;
+            if (!detail || !userId || String(detail.userId) !== String(userId)) return;
+            const delta = typeof detail.delta === 'number' ? detail.delta : -1;
+
+            setUserPackages(prev => prev.map(pkg => {
+                const remaining = (pkg as any).remainingSessions ?? (pkg as any).remaining_sessions;
+                const total = (pkg as any).totalSessions ?? (pkg as any).total_sessions;
+                // Μόνο αν είναι πεπερασμένες συνεδρίες
+                if (total == null) return pkg;
+                const next = Math.max(0, (Number.isFinite(remaining) ? Number(remaining) : 0) + delta);
+                return { ...pkg, remainingSessions: next } as any;
+            }));
+        };
+        window.addEventListener('sweat:session-consumed', handler as EventListener);
+        return () => window.removeEventListener('sweat:session-consumed', handler as EventListener);
     }, [userId]);
 
     const handleApproveUser = async () => {
@@ -245,6 +266,20 @@ export function UserProfilePage() {
             return p;
         }));
     };
+
+    const handleDeleteAssignedPackage = async (userPackageId: string) => {
+        if (!userId) return;
+        const confirmed = window.confirm('Σίγουρα θέλετε να διαγράψετε αυτό το πακέτο από τον πελάτη;');
+        if (!confirmed) return;
+        try {
+            await usersApi.deleteAssignedPackage(userId, userPackageId);
+            setUserPackages(prev => prev.filter(p => p.id !== userPackageId));
+            toast({ title: 'Επιτυχία', description: 'Το πακέτο διαγράφηκε από τον πελάτη.' });
+        } catch (error) {
+            console.error('Error deleting assigned package:', error);
+            toast({ title: 'Σφάλμα', description: 'Αποτυχία διαγραφής πακέτου.', variant: 'destructive' });
+        }
+    };
     
     if (loading) {
         return (
@@ -351,6 +386,21 @@ export function UserProfilePage() {
                     </Badge>
                 );
         }
+    };
+
+    // Helpers: remaining sessions & expiry date formatting with backend field fallbacks
+    const getRemainingSessionsLabel = (pkg: any) => {
+        const remaining = (pkg?.remainingSessions ?? pkg?.remaining_sessions ?? undefined);
+        const total = (pkg?.totalSessions ?? pkg?.total_sessions ?? undefined);
+        if (total == null || remaining == null) return 'Απεριόριστες';
+        return Number.isFinite(remaining) ? remaining : '—';
+    };
+
+    const getExpiryDateLabel = (pkg: any) => {
+        const expiryRaw = (pkg?.expiryDate ?? pkg?.expiry_date ?? null);
+        if (!expiryRaw) return 'Χωρίς λήξη';
+        const d = new Date(expiryRaw);
+        return Number.isNaN(d.getTime()) ? 'Χωρίς λήξη' : d.toLocaleDateString('el-GR');
     };
 
     return (
@@ -465,8 +515,7 @@ export function UserProfilePage() {
                                              <DialogHeader>
                                                 <DialogTitle>Ανάθεση Νέου Πακέτου</DialogTitle>
                                             </DialogHeader>
-                                            {/* TODO: Form to assign a package */}
-                                            <p>Εδώ θα μπει φόρμα για επιλογή και ανάθεση πακέτου.</p>
+                                            <AssignPackageForm userId={userId!} onAssigned={() => fetchUserData()} />
                                         </DialogContent>
                                     </Dialog>
                                     <PaymentInstallmentsModal customerId={userId} />
@@ -502,9 +551,9 @@ export function UserProfilePage() {
                                         <TableRow>
                                             <TableHead>Πακέτο</TableHead>
                                             <TableHead>Κατάσταση</TableHead>
-                                            <TableHead>Απομένουν</TableHead>
-                                            <TableHead>Ημ/νία Λήξης</TableHead>
-                                            <TableHead className="text-right">Ενέργειες</TableHead>
+                                                <TableHead>Απομένουν</TableHead>
+                                                <TableHead>Ημ/νία Λήξης</TableHead>
+                                                <TableHead className="text-right">Ενέργειες</TableHead>
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
@@ -512,8 +561,8 @@ export function UserProfilePage() {
                                             <TableRow key={p.id}>
                                                 <TableCell className="font-medium">{p.name}</TableCell>
                                                 <TableCell>{getStatusBadge(p.status)}</TableCell>
-                                                <TableCell>{isFinite(p.remainingSessions) ? p.remainingSessions : 'Απεριόριστες'}</TableCell>
-                                                <TableCell>{new Date(p.expiryDate).toLocaleDateString('el-GR')}</TableCell>
+                                                <TableCell>{getRemainingSessionsLabel(p)}</TableCell>
+                                                <TableCell>{getExpiryDateLabel(p)}</TableCell>
                                                 <TableCell className="text-right space-x-1">
                                                     <Button variant="outline" size="sm" onClick={() => handleTogglePause(p.id)} disabled={p.status === 'expired'}>
                                                         {p.status === 'active' ? <Pause className="h-4 w-4 mr-1"/> : <Play className="h-4 w-4 mr-1"/>}
@@ -522,6 +571,9 @@ export function UserProfilePage() {
                                                     <Button variant="outline" size="sm" onClick={() => handleExtend(p.id)} disabled={p.status === 'expired'}>
                                                         <CalendarPlus className="h-4 w-4 mr-1"/>
                                                         Επέκταση
+                                                    </Button>
+                                                    <Button variant="destructive" size="sm" onClick={() => handleDeleteAssignedPackage(p.id)}>
+                                                        Διαγραφή
                                                     </Button>
                                                 </TableCell>
                                             </TableRow>
