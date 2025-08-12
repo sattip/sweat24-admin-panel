@@ -171,33 +171,68 @@ export default function EventsPage() {
 
   const handleSubmitEvent = async () => {
     try {
-      const dataToSubmit = {
-        ...eventFormData,
-        max_attendees: eventFormData.max_attendees || null,
-      };
-      
-      if (editingEvent) {
-        await eventsApi.updateEvent(editingEvent.id, dataToSubmit);
-        toast({
-          title: "Επιτυχία",
-          description: "Η εκδήλωση ενημερώθηκε",
-        });
-      } else {
-        await eventsApi.createEvent(dataToSubmit);
-        toast({
-          title: "Επιτυχία",
-          description: "Η εκδήλωση δημιουργήθηκε",
-        });
+      // UI validation to avoid 422
+      const requiredMissing = !eventFormData.name?.trim() ||
+        !eventFormData.description?.trim() ||
+        !eventFormData.date?.trim() ||
+        !eventFormData.time?.trim() ||
+        !eventFormData.location?.trim() ||
+        !eventFormData.type?.trim();
+      if (requiredMissing) {
+        toast({ title: 'Σφάλμα', description: 'Συμπληρώστε όλα τα απαραίτητα πεδία.', variant: 'destructive' });
+        return;
       }
-      fetchEvents();
-      setOpenEventDialog(false);
+      // date must be today or future
+      const today = new Date();
+      const onlyDate = new Date(eventFormData.date + 'T00:00:00');
+      if (onlyDate < new Date(today.getFullYear(), today.getMonth(), today.getDate())) {
+        toast({ title: 'Σφάλμα', description: 'Η ημερομηνία πρέπει να είναι σημερινή ή μεταγενέστερη.', variant: 'destructive' });
+        return;
+      }
+
+      // Build payload exactly as backend validator expects
+      const dataToSubmit: any = {
+        name: eventFormData.name?.trim(),
+        description: eventFormData.description?.trim(),
+        date: eventFormData.date,
+        time: eventFormData.time,
+        location: eventFormData.location?.trim(),
+        type: eventFormData.type,
+      };
+      if (eventFormData.image_url?.trim()) {
+        dataToSubmit.image_url = eventFormData.image_url.trim();
+      } else {
+        dataToSubmit.image_url = null;
+      }
+      dataToSubmit.details = Array.isArray(eventFormData.details) ? eventFormData.details : [];
+      dataToSubmit.max_attendees = eventFormData.max_attendees ? Number(eventFormData.max_attendees) : null;
+      // 1) Save (αν αποτύχει, δείξε error και σταμάτα εδώ)
+      try {
+        if (editingEvent) {
+          await eventsApi.updateEvent(editingEvent.id, dataToSubmit);
+          toast({ title: 'Επιτυχία', description: 'Η εκδήλωση ενημερώθηκε' });
+        } else {
+          await eventsApi.createEvent(dataToSubmit);
+          toast({ title: 'Επιτυχία', description: 'Η εκδήλωση δημιουργήθηκε' });
+        }
+        setOpenEventDialog(false);
+      } catch (saveError) {
+        console.error('Error saving event:', saveError);
+        toast({ title: 'Σφάλμα', description: 'Αποτυχία αποθήκευσης', variant: 'destructive' });
+        return;
+      }
+
+      // 2) Refresh λίστας (αν αποτύχει, απλά log/toast info, χωρίς να αναιρεί το success)
+      try {
+        await fetchEvents();
+      } catch (refreshError) {
+        console.warn('Warning: Η εκδήλωση αποθηκεύτηκε, αλλά απέτυχε η ανανέωση λίστας.', refreshError);
+        // Προαιρετικό ενημερωτικό toast (όχι destructive)
+        toast({ title: 'Ενημέρωση', description: 'Αποθηκεύτηκε, αλλά απέτυχε η ανανέωση της λίστας.', variant: 'default' });
+      }
     } catch (error) {
-      console.error('Error saving event:', error);
-      toast({
-        title: "Σφάλμα",
-        description: "Αποτυχία αποθήκευσης",
-        variant: "destructive",
-      });
+      console.error('Unexpected error in handleSubmitEvent:', error);
+      toast({ title: 'Σφάλμα', description: 'Απρόσμενο σφάλμα.', variant: 'destructive' });
     }
   };
 

@@ -113,6 +113,28 @@ export const usersApi = {
       method: 'POST',
     });
   },
+
+  // Assign a package to a user
+  assignPackage: async (
+    id: string,
+    data: { package_id: string }
+  ): Promise<{ message: string; user_package?: unknown }> => {
+    // Χρησιμοποιούμε /api/v1 ώστε να δρομολογηθεί σωστά από το getApiUrl
+    return apiRequest(`/admin/users/${id}/assign-package`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  // Delete assigned package from user
+  deleteAssignedPackage: async (
+    userId: string,
+    userPackageId: string
+  ): Promise<{ message: string }> => {
+    return apiRequest(`/admin/users/${userId}/packages/${userPackageId}`, {
+      method: 'DELETE',
+    });
+  },
 };
 
 // Packages API

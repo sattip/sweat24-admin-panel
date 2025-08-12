@@ -297,6 +297,15 @@ export function BookingsPage() {
         description: `Η κράτηση για ${customer_name} δημιουργήθηκε με επιτυχία.`,
       });
 
+      // Ειδοποίησε άλλα views (π.χ. προφίλ πελάτη) ώστε να μειώσουν τις συνεδρίες τοπικά
+      if (userId) {
+        try {
+          window.dispatchEvent(new CustomEvent('sweat:session-consumed', {
+            detail: { userId, delta: -1, reason: 'booking_create' }
+          }));
+        } catch {}
+      }
+
       // Reset form
       setNewBookingData({
         userId: '',
@@ -419,6 +428,16 @@ export function BookingsPage() {
       const bookingsResponse = await bookingsApi.getAll();
       const bookingsData = Array.isArray(bookingsResponse) ? bookingsResponse : (bookingsResponse.data || []);
       setBookings(bookingsData);
+
+      // Αν δημιουργήθηκε κράτηση με συνδεδεμένο χρήστη, ενημέρωσε για κατανάλωση συνεδρίας
+      try {
+        const createdBookingUserId = (response as any)?.booking?.user_id || (response as any)?.booking?.userId || null;
+        if (createdBookingUserId) {
+          window.dispatchEvent(new CustomEvent('sweat:session-consumed', {
+            detail: { userId: String(createdBookingUserId), delta: -1, reason: 'booking_confirm_from_request' }
+          }));
+        }
+      } catch {}
 
       toast({
         title: "Επιτυχία!",
