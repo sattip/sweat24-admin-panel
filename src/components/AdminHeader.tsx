@@ -2,6 +2,8 @@ import { useState } from "react";
 import { Bell, Search, User, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { VersionIndicator } from "./VersionIndicator";
+import { APP_VERSION } from "@/config/version";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -148,6 +150,8 @@ export function AdminHeader() {
         onOpenChange={setSettingsOpen}
         triggerButton={false}
       />
+      
+      <VersionIndicator version={APP_VERSION} />
     </header>
   );
 }

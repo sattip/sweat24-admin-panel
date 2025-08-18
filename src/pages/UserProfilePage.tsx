@@ -41,6 +41,16 @@ import type { FullUserProfile } from "@/types/userProfile";
 import { GuardianDetailsSection } from "@/components/profile/GuardianDetailsSection";
 import { MedicalHistorySection } from "@/components/profile/MedicalHistorySection";
 import { ReferralInfoSection } from "@/components/profile/ReferralInfoSection";
+import { 
+    getGenderDisplay, 
+    formatGreekDate, 
+    formatGreekTimestamp, 
+    formatWeight, 
+    formatHeight, 
+    formatAge,
+    displayField,
+    formatRegistrationDate
+} from "@/utils/userHelpers";
 
 
 export function UserProfilePage() {
@@ -167,11 +177,11 @@ export function UserProfilePage() {
                     // Set a minimal fullProfile if we don't have one yet
                     setFullProfile(prev => ({
                         ...prev,
-                        id: userData.value.id,
+                        id: parseInt(userData.value.id),
                         full_name: userData.value.name,
                         email: userData.value.email,
                         is_minor: userData.value.is_minor || false,
-                        registration_date: userData.value.created_at,
+                        registration_date: userData.value.created_at || userData.value.joinDate,
                         medical_history: transformedMedicalHistory
                     }));
                 }
@@ -208,8 +218,8 @@ export function UserProfilePage() {
         setLoadingSignatures(true);
         try {
             const response = await apiService.get(`/users/${userId}/signatures`);
-            if (response.data?.signatures) {
-                setSignatures(response.data.signatures);
+            if (response.data && typeof response.data === 'object' && 'signatures' in response.data) {
+                setSignatures(response.data.signatures as any[]);
             }
         } catch (error) {
             console.error('Error fetching signatures:', error);
@@ -465,19 +475,34 @@ export function UserProfilePage() {
                                     <div className="text-muted-foreground space-y-2">
                                         <div className="flex items-center gap-2"><Mail className="h-4 w-4" /> {user.email}</div>
                                         <div className="flex items-center gap-2"><Phone className="h-4 w-4" /> {user.phone}</div>
-                                        <div className="flex items-center gap-2"><CalendarIcon className="h-4 w-4" /> Μέλος από: {user.joinDate}</div>
+                                        <div className="flex items-center gap-2">
+                                            <CalendarIcon className="h-4 w-4" /> 
+                                            Μέλος από: {formatRegistrationDate(user)}
+                                        </div>
                                         <div className="flex items-center gap-2">
                                             <User className="h-4 w-4" /> 
                                             Τύπος Συνδρομής: <span className="font-medium">{user.membershipType}</span>
                                         </div>
-                                        {fullProfile?.signature_url && (
-                                            <div className="mt-3">
-                                                <p className="text-sm font-medium mb-2">Υπογραφή Χρήστη:</p>
-                                                <img 
-                                                    src={fullProfile.signature_url} 
-                                                    alt="Υπογραφή Χρήστη" 
-                                                    className="max-w-[200px] border rounded p-2"
-                                                />
+                                        
+                                        {/* New Fields - με safe display */}
+                                        {user.date_of_birth && (
+                                            <div className="flex items-center gap-2">
+                                                <CalendarIcon className="h-4 w-4" /> 
+                                                Ημ/νία Γέννησης: <span className="font-medium">{formatGreekDate(user.date_of_birth)}</span>
+                                                <span className="text-sm">({formatAge(user.date_of_birth)})</span>
+                                            </div>
+                                        )}
+                                        
+                                        <div className="flex items-center gap-2">
+                                            <User className="h-4 w-4" /> 
+                                            Φύλο: <span className="font-medium">{displayField(getGenderDisplay(user.gender))}</span>
+                                        </div>
+                                        
+                                        
+                                        {user.profile_last_updated && (
+                                            <div className="flex items-center gap-2 text-xs opacity-75">
+                                                <Clock className="h-3 w-3" />
+                                                Τελευταία ενημέρωση προφίλ: {formatGreekTimestamp(user.profile_last_updated)}
                                             </div>
                                         )}
                                     </div>
@@ -518,7 +543,12 @@ export function UserProfilePage() {
                                             <AssignPackageForm userId={userId!} onAssigned={() => fetchUserData()} />
                                         </DialogContent>
                                     </Dialog>
-                                    <PaymentInstallmentsModal customerId={userId} />
+                                    <PaymentInstallmentsModal 
+                                        customerId={userId} 
+                                        isOpen={false} 
+                                        onClose={() => {}} 
+                                        onSuccess={() => {}}
+                                    />
                                 </div>
                             </CardContent>
                         </Card>

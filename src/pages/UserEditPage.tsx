@@ -8,10 +8,16 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useToast } from "@/components/ui/use-toast";
-import { ArrowLeft, Save, Loader2, Mail, Phone } from "lucide-react";
+import { ArrowLeft, Save, Loader2, Mail, Phone, Lock } from "lucide-react";
 import { usersApi } from "@/services/apiService";
 import type { User } from "@/data/mockData";
 import SignaturePad, { SignaturePadRef } from "@/components/SignaturePad";
+import { 
+    isNameLocked, 
+    validateWeight, 
+    validateHeight,
+    getGenderDisplay
+} from "@/utils/userHelpers";
 import {
   Dialog,
   DialogContent,
@@ -20,6 +26,13 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 export function UserEditPage() {
   const { userId } = useParams();
@@ -36,8 +49,14 @@ export function UserEditPage() {
   const [formData, setFormData] = useState({
     name: "",
     email: "",
-    phone: ""
+    phone: "",
+    gender: "",
+    weight: "",
+    height: "",
+    date_of_birth: ""
   });
+  
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (userId) {
@@ -52,10 +71,24 @@ export function UserEditPage() {
     try {
       const userData = await usersApi.getById(userId);
       setUser(userData);
+      
+      // Debug name lock logic
+      console.log('🔒 Name Lock Debug:', {
+        name: userData.name,
+        registration_status: userData.registration_status,
+        approved_at: userData.approved_at,
+        status: userData.status,
+        isLocked: isNameLocked(userData)
+      });
+      
       setFormData({
         name: userData.name || "",
         email: userData.email || "",
-        phone: userData.phone || ""
+        phone: userData.phone || "",
+        gender: userData.gender || "",
+        weight: userData.weight?.toString() || "",
+        height: userData.height?.toString() || "",
+        date_of_birth: userData.date_of_birth || ""
       });
     } catch (error) {
       console.error('Error fetching user:', error);
@@ -69,14 +102,68 @@ export function UserEditPage() {
     }
   };
 
+  const validateForm = (): boolean => {
+    const errors: Record<string, string> = {};
+    
+    // Weight validation
+    if (formData.weight && !validateWeight(formData.weight)) {
+      errors.weight = "Το βάρος πρέπει να είναι μεταξύ 30 και 300 κιλών";
+    }
+    
+    // Height validation
+    if (formData.height && !validateHeight(formData.height)) {
+      errors.height = "Το ύψος πρέπει να είναι μεταξύ 100 και 250 εκατοστών";
+    }
+    
+    // Date of birth validation (should not be in the future)
+    if (formData.date_of_birth) {
+      const birthDate = new Date(formData.date_of_birth);
+      const today = new Date();
+      if (birthDate > today) {
+        errors.date_of_birth = "Η ημερομηνία γέννησης δεν μπορεί να είναι στο μέλλον";
+      }
+    }
+    
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!userId) return;
+    if (!userId || !user) return;
+    
+    // Validate form
+    if (!validateForm()) {
+      toast({
+        title: "Σφάλμα Validation",
+        description: "Παρακαλώ διορθώστε τα σφάλματα στη φόρμα.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    // Check for name lock
+    if (isNameLocked(user) && formData.name !== user.name) {
+      toast({
+        title: "Σφάλμα",
+        description: "Το όνομα είναι κλειδωμένο μετά την έγκριση του λογαριασμού.",
+        variant: "destructive"
+      });
+      return;
+    }
     
     setSaving(true);
     try {
-      const updateData: any = { ...formData };
+      const updateData: any = { 
+        name: formData.name,
+        email: formData.email,
+        phone: formData.phone,
+        gender: formData.gender || null,
+        weight: formData.weight ? parseFloat(formData.weight) : null,
+        height: formData.height ? parseFloat(formData.height) : null,
+        date_of_birth: formData.date_of_birth || null
+      };
       
       // Include signature if it was updated
       if (signatureData) {
@@ -92,13 +179,25 @@ export function UserEditPage() {
         description: "Τα στοιχεία του χρήστη ενημερώθηκαν επιτυχώς.",
       });
       navigate(`/users/${userId}`);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error updating user:', error);
-      toast({
-        title: "Σφάλμα",
-        description: "Αποτυχία ενημέρωσης στοιχείων χρήστη.",
-        variant: "destructive"
-      });
+      
+      // Handle specific API errors
+      if (error?.response?.data?.errors) {
+        const apiErrors = error.response.data.errors;
+        setFormErrors(apiErrors);
+        toast({
+          title: "Σφάλματα Validation",
+          description: error.response.data.message || "Παρακαλώ διορθώστε τα σφάλματα στη φόρμα.",
+          variant: "destructive"
+        });
+      } else {
+        toast({
+          title: "Σφάλμα",
+          description: "Αποτυχία ενημέρωσης στοιχείων χρήστη.",
+          variant: "destructive"
+        });
+      }
     } finally {
       setSaving(false);
     }
@@ -107,6 +206,22 @@ export function UserEditPage() {
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
+    
+    // Clear error when user starts typing
+    if (formErrors[name]) {
+      setFormErrors(prev => ({ ...prev, [name]: '' }));
+    }
+  };
+  
+  const handleSelectChange = (name: string, value: string) => {
+    // Handle "clear" option for gender
+    const finalValue = value === "clear" ? "" : value;
+    setFormData(prev => ({ ...prev, [name]: finalValue }));
+    
+    // Clear error when user makes selection
+    if (formErrors[name]) {
+      setFormErrors(prev => ({ ...prev, [name]: '' }));
+    }
   };
 
   if (loading) {
@@ -188,14 +303,40 @@ export function UserEditPage() {
                 <form onSubmit={handleSubmit} className="space-y-4">
                   <div className="space-y-2">
                     <Label htmlFor="name">Ονοματεπώνυμο *</Label>
-                    <Input
-                      id="name"
-                      name="name"
-                      value={formData.name}
-                      onChange={handleInputChange}
-                      placeholder="Το όνομα του πελάτη"
-                      required
-                    />
+                    {user && isNameLocked(user) ? (
+                      <div className="relative">
+                        <Input
+                          id="name"
+                          name="name"
+                          value={formData.name}
+                          onChange={handleInputChange}
+                          placeholder="Το όνομα του πελάτη"
+                          disabled
+                          className="bg-gray-50 pr-8"
+                          title="Το όνομα είναι κλειδωμένο μετά την έγκριση του λογαριασμού"
+                          required
+                        />
+                        <Lock className="absolute right-2 top-3 h-4 w-4 text-gray-400" />
+                      </div>
+                    ) : (
+                      <Input
+                        id="name"
+                        name="name"
+                        value={formData.name}
+                        onChange={handleInputChange}
+                        placeholder="Το όνομα του πελάτη"
+                        required
+                      />
+                    )}
+                    {user && isNameLocked(user) && (
+                      <p className="text-xs text-gray-500 flex items-center gap-1">
+                        <Lock className="h-3 w-3" />
+                        Το όνομα είναι κλειδωμένο μετά την έγκριση
+                      </p>
+                    )}
+                    {formErrors.name && (
+                      <p className="text-sm text-red-600">{formErrors.name}</p>
+                    )}
                   </div>
                   
                   <div className="space-y-2">
@@ -213,6 +354,9 @@ export function UserEditPage() {
                         required
                       />
                     </div>
+                    {formErrors.email && (
+                      <p className="text-sm text-red-600">{formErrors.email}</p>
+                    )}
                   </div>
                   
                   <div className="space-y-2">
@@ -228,6 +372,93 @@ export function UserEditPage() {
                         placeholder="6901234567"
                         className="pl-10"
                       />
+                    </div>
+                    {formErrors.phone && (
+                      <p className="text-sm text-red-600">{formErrors.phone}</p>
+                    )}
+                  </div>
+                  
+                  {/* New Fields Section */}
+                  <div className="border-t pt-4 mt-6">
+                    <h3 className="text-lg font-medium mb-4">Προσωπικά Στοιχεία</h3>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="date_of_birth">Ημερομηνία Γέννησης</Label>
+                        <Input
+                          id="date_of_birth"
+                          name="date_of_birth"
+                          type="date"
+                          value={formData.date_of_birth}
+                          onChange={handleInputChange}
+                          max={new Date().toISOString().split('T')[0]} // Prevent future dates
+                        />
+                        {formErrors.date_of_birth && (
+                          <p className="text-sm text-red-600">{formErrors.date_of_birth}</p>
+                        )}
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label htmlFor="gender">Φύλο</Label>
+                        <Select 
+                          value={formData.gender || ""} 
+                          onValueChange={(value) => handleSelectChange('gender', value)}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Επιλέξτε φύλο" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="clear">Καθαρισμός επιλογής</SelectItem>
+                            <SelectItem value="male">Άνδρας</SelectItem>
+                            <SelectItem value="female">Γυναίκα</SelectItem>
+                            <SelectItem value="other">Άλλο</SelectItem>
+                            <SelectItem value="prefer_not_to_say">Προτιμώ να μη το πω</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        {formErrors.gender && (
+                          <p className="text-sm text-red-600">{formErrors.gender}</p>
+                        )}
+                      </div>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="weight">Βάρος (kg)</Label>
+                        <Input
+                          id="weight"
+                          name="weight"
+                          type="number"
+                          min="30"
+                          max="300"
+                          step="0.1"
+                          value={formData.weight}
+                          onChange={handleInputChange}
+                          placeholder="π.χ. 65.5"
+                        />
+                        {formErrors.weight && (
+                          <p className="text-sm text-red-600">{formErrors.weight}</p>
+                        )}
+                        <p className="text-xs text-gray-500">Μεταξύ 30 και 300 κιλών</p>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label htmlFor="height">Ύψος (cm)</Label>
+                        <Input
+                          id="height"
+                          name="height"
+                          type="number"
+                          min="100"
+                          max="250"
+                          step="0.1"
+                          value={formData.height}
+                          onChange={handleInputChange}
+                          placeholder="π.χ. 170.5"
+                        />
+                        {formErrors.height && (
+                          <p className="text-sm text-red-600">{formErrors.height}</p>
+                        )}
+                        <p className="text-xs text-gray-500">Μεταξύ 100 και 250 εκατοστών</p>
+                      </div>
                     </div>
                   </div>
                   
