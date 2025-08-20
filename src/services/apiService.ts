@@ -113,6 +113,28 @@ export const usersApi = {
       method: 'POST',
     });
   },
+
+  // Assign a package to a user
+  assignPackage: async (
+    id: string,
+    data: { package_id: string }
+  ): Promise<{ message: string; user_package?: unknown }> => {
+    // Χρησιμοποιούμε /api/v1 ώστε να δρομολογηθεί σωστά από το getApiUrl
+    return apiRequest(`/admin/users/${id}/assign-package`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  // Delete assigned package from user
+  deleteAssignedPackage: async (
+    userId: string,
+    userPackageId: string
+  ): Promise<{ message: string }> => {
+    return apiRequest(`/admin/users/${userId}/packages/${userPackageId}`, {
+      method: 'DELETE',
+    });
+  },
 };
 
 // Packages API
@@ -218,6 +240,67 @@ export const instructorsApi = {
 
   delete: async (id: string): Promise<{ message: string }> => {
     return apiRequest(`${API_CONFIG.ENDPOINTS.INSTRUCTORS}/${id}`, {
+      method: 'DELETE',
+    });
+  },
+};
+
+// Body Measurements API
+export const measurementsApi = {
+  getUserMeasurements: async (userId: string): Promise<Array<{
+    id: number;
+    date: string;
+    weight: string;
+    height: string;
+    waist: string;
+    hips: string;
+    chest: string;
+    arm: string;
+    thigh: string;
+    bodyFat: string;
+    notes: string;
+    bmi: string;
+  }>> => {
+    return apiRequest(`/api/v1/admin/users/${userId}/measurements`);
+  },
+
+  getLatestMeasurement: async (userId: string): Promise<{
+    id: number;
+    date: string;
+    weight: string;
+    height: string;
+    waist: string;
+    hips: string;
+    chest: string;
+    arm: string;
+    thigh: string;
+    bodyFat: string;
+    notes: string;
+    bmi: string;
+  } | null> => {
+    try {
+      return await apiRequest(`/api/v1/admin/users/${userId}/measurements/latest`);
+    } catch (error) {
+      // If no measurements, return null
+      return null;
+    }
+  },
+};
+
+// Progress Photos API
+export const progressPhotosApi = {
+  // Admin endpoints
+  getUserPhotos: async (userId: string): Promise<Array<{
+    id: number;
+    imageUrl: string;
+    date: string;
+    caption: string | null;
+  }>> => {
+    return apiRequest(`/api/v1/admin/users/${userId}/progress-photos`);
+  },
+
+  deletePhoto: async (photoId: number): Promise<{ message: string }> => {
+    return apiRequest(`/api/v1/admin/progress-photos/${photoId}`, {
       method: 'DELETE',
     });
   },
@@ -472,7 +555,7 @@ export const bookingRequestsApi = {
     return apiRequest('/api/v1/admin/booking-requests');
   },
 
-  confirm: async (id: string, data: { date: string; time: string; instructor_id?: string }): Promise<{ message: string; booking?: any }> => {
+  confirm: async (id: string, data: { confirmed_date: string; confirmed_time: string; instructor_id?: number }): Promise<{ message: string; booking?: any }> => {
     return apiRequest(`/api/v1/admin/booking-requests/${id}/confirm`, {
       method: 'POST',
       body: JSON.stringify(data)
@@ -484,6 +567,10 @@ export const bookingRequestsApi = {
       method: 'POST',
       body: JSON.stringify(data)
     });
+  },
+
+  getCalendar: async (date: string): Promise<any[]> => {
+    return apiRequest(`/api/v1/admin/booking-requests-calendar?date=${date}`);
   }
 };
 
@@ -515,6 +602,20 @@ export const chatApi = {
       method: 'PUT',
       body: JSON.stringify({ status })
     });
+  },
+
+  startConversation: async (userId: number, message: string) => {
+    return apiRequest('/admin/chat/conversations', {
+      method: 'POST',
+      body: JSON.stringify({ 
+        user_id: userId,
+        initial_message: message 
+      })
+    });
+  },
+
+  getAllUsers: async () => {
+    return apiRequest('/admin/chat/users');
   }
 };
 

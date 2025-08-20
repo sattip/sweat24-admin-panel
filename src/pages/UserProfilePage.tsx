@@ -24,6 +24,16 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
     Select,
     SelectContent,
     SelectItem,
@@ -35,11 +45,22 @@ import type { User as UserType, UserPackage } from "@/data/mockData";
 import { notifyPackageExtension } from "@/utils/notifications";
 import { PaymentInstallmentsModal } from "@/components/PaymentInstallmentsModal";
 import SignatureDisplay from "@/components/SignatureDisplay";
+import { AssignPackageForm } from "@/components/AssignPackageForm";
 import { apiService, usersApi } from "@/services/apiService";
 import type { FullUserProfile } from "@/types/userProfile";
 import { GuardianDetailsSection } from "@/components/profile/GuardianDetailsSection";
 import { MedicalHistorySection } from "@/components/profile/MedicalHistorySection";
 import { ReferralInfoSection } from "@/components/profile/ReferralInfoSection";
+import { 
+    getGenderDisplay, 
+    formatGreekDate, 
+    formatGreekTimestamp, 
+    formatWeight, 
+    formatHeight, 
+    formatAge,
+    displayField,
+    formatRegistrationDate
+} from "@/utils/userHelpers";
 
 
 export function UserProfilePage() {
@@ -52,12 +73,34 @@ export function UserProfilePage() {
     const [userPackages, setUserPackages] = useState<UserPackage[]>([]);
     const [signatures, setSignatures] = useState<any[]>([]);
     const [loadingSignatures, setLoadingSignatures] = useState(false);
+    const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+    const [packageToDelete, setPackageToDelete] = useState<string | null>(null);
     
     useEffect(() => {
         if (userId) {
             fetchUserData();
             fetchSignatures();
         }
+    }, [userId]);
+
+    // Άκου μια παγκόσμια ειδοποίηση κατανάλωσης συνεδρίας για να ενημερώνεται άμεσα η λίστα πακέτων
+    useEffect(() => {
+        const handler = (e: Event) => {
+            const detail = (e as CustomEvent).detail as { userId?: string; delta?: number } | undefined;
+            if (!detail || !userId || String(detail.userId) !== String(userId)) return;
+            const delta = typeof detail.delta === 'number' ? detail.delta : -1;
+
+            setUserPackages(prev => prev.map(pkg => {
+                const remaining = (pkg as any).remainingSessions ?? (pkg as any).remaining_sessions;
+                const total = (pkg as any).totalSessions ?? (pkg as any).total_sessions;
+                // Μόνο αν είναι πεπερασμένες συνεδρίες
+                if (total == null) return pkg;
+                const next = Math.max(0, (Number.isFinite(remaining) ? Number(remaining) : 0) + delta);
+                return { ...pkg, remainingSessions: next } as any;
+            }));
+        };
+        window.addEventListener('sweat:session-consumed', handler as EventListener);
+        return () => window.removeEventListener('sweat:session-consumed', handler as EventListener);
     }, [userId]);
 
     const handleApproveUser = async () => {
@@ -146,11 +189,11 @@ export function UserProfilePage() {
                     // Set a minimal fullProfile if we don't have one yet
                     setFullProfile(prev => ({
                         ...prev,
-                        id: userData.value.id,
+                        id: parseInt(userData.value.id),
                         full_name: userData.value.name,
                         email: userData.value.email,
                         is_minor: userData.value.is_minor || false,
-                        registration_date: userData.value.created_at,
+                        registration_date: userData.value.created_at || userData.value.joinDate,
                         medical_history: transformedMedicalHistory
                     }));
                 }
@@ -187,8 +230,8 @@ export function UserProfilePage() {
         setLoadingSignatures(true);
         try {
             const response = await apiService.get(`/users/${userId}/signatures`);
-            if (response.data?.signatures) {
-                setSignatures(response.data.signatures);
+            if (response.data && typeof response.data === 'object' && 'signatures' in response.data) {
+                setSignatures(response.data.signatures as any[]);
             }
         } catch (error) {
             console.error('Error fetching signatures:', error);
@@ -244,6 +287,26 @@ export function UserProfilePage() {
             }
             return p;
         }));
+    };
+
+    const handleDeleteAssignedPackage = (userPackageId: string) => {
+        setPackageToDelete(userPackageId);
+        setDeleteConfirmOpen(true);
+    };
+
+    const confirmDeletePackage = async () => {
+        if (!userId || !packageToDelete) return;
+        try {
+            await usersApi.deleteAssignedPackage(userId, packageToDelete);
+            setUserPackages(prev => prev.filter(p => p.id !== packageToDelete));
+            toast({ title: 'Επιτυχία', description: 'Το πακέτο διαγράφηκε από τον πελάτη.' });
+        } catch (error) {
+            console.error('Error deleting assigned package:', error);
+            toast({ title: 'Σφάλμα', description: 'Αποτυχία διαγραφής πακέτου.', variant: 'destructive' });
+        } finally {
+            setDeleteConfirmOpen(false);
+            setPackageToDelete(null);
+        }
     };
     
     if (loading) {
@@ -353,6 +416,21 @@ export function UserProfilePage() {
         }
     };
 
+    // Helpers: remaining sessions & expiry date formatting with backend field fallbacks
+    const getRemainingSessionsLabel = (pkg: any) => {
+        const remaining = (pkg?.remainingSessions ?? pkg?.remaining_sessions ?? undefined);
+        const total = (pkg?.totalSessions ?? pkg?.total_sessions ?? undefined);
+        if (total == null || remaining == null) return 'Απεριόριστες';
+        return Number.isFinite(remaining) ? remaining : '—';
+    };
+
+    const getExpiryDateLabel = (pkg: any) => {
+        const expiryRaw = (pkg?.expiryDate ?? pkg?.expiry_date ?? null);
+        if (!expiryRaw) return 'Χωρίς λήξη';
+        const d = new Date(expiryRaw);
+        return Number.isNaN(d.getTime()) ? 'Χωρίς λήξη' : d.toLocaleDateString('el-GR');
+    };
+
     return (
         <SidebarProvider>
             <div className="min-h-screen flex w-full bg-background">
@@ -415,19 +493,34 @@ export function UserProfilePage() {
                                     <div className="text-muted-foreground space-y-2">
                                         <div className="flex items-center gap-2"><Mail className="h-4 w-4" /> {user.email}</div>
                                         <div className="flex items-center gap-2"><Phone className="h-4 w-4" /> {user.phone}</div>
-                                        <div className="flex items-center gap-2"><CalendarIcon className="h-4 w-4" /> Μέλος από: {user.joinDate}</div>
+                                        <div className="flex items-center gap-2">
+                                            <CalendarIcon className="h-4 w-4" /> 
+                                            Μέλος από: {formatRegistrationDate(user)}
+                                        </div>
                                         <div className="flex items-center gap-2">
                                             <User className="h-4 w-4" /> 
                                             Τύπος Συνδρομής: <span className="font-medium">{user.membershipType}</span>
                                         </div>
-                                        {fullProfile?.signature_url && (
-                                            <div className="mt-3">
-                                                <p className="text-sm font-medium mb-2">Υπογραφή Χρήστη:</p>
-                                                <img 
-                                                    src={fullProfile.signature_url} 
-                                                    alt="Υπογραφή Χρήστη" 
-                                                    className="max-w-[200px] border rounded p-2"
-                                                />
+                                        
+                                        {/* New Fields - με safe display */}
+                                        {user.date_of_birth && (
+                                            <div className="flex items-center gap-2">
+                                                <CalendarIcon className="h-4 w-4" /> 
+                                                Ημ/νία Γέννησης: <span className="font-medium">{formatGreekDate(user.date_of_birth)}</span>
+                                                <span className="text-sm">({formatAge(user.date_of_birth)})</span>
+                                            </div>
+                                        )}
+                                        
+                                        <div className="flex items-center gap-2">
+                                            <User className="h-4 w-4" /> 
+                                            Φύλο: <span className="font-medium">{displayField(getGenderDisplay(user.gender))}</span>
+                                        </div>
+                                        
+                                        
+                                        {user.profile_last_updated && (
+                                            <div className="flex items-center gap-2 text-xs opacity-75">
+                                                <Clock className="h-3 w-3" />
+                                                Τελευταία ενημέρωση προφίλ: {formatGreekTimestamp(user.profile_last_updated)}
                                             </div>
                                         )}
                                     </div>
@@ -465,11 +558,15 @@ export function UserProfilePage() {
                                              <DialogHeader>
                                                 <DialogTitle>Ανάθεση Νέου Πακέτου</DialogTitle>
                                             </DialogHeader>
-                                            {/* TODO: Form to assign a package */}
-                                            <p>Εδώ θα μπει φόρμα για επιλογή και ανάθεση πακέτου.</p>
+                                            <AssignPackageForm userId={userId!} onAssigned={() => fetchUserData()} />
                                         </DialogContent>
                                     </Dialog>
-                                    <PaymentInstallmentsModal customerId={userId} />
+                                    <PaymentInstallmentsModal 
+                                        customerId={userId} 
+                                        isOpen={false} 
+                                        onClose={() => {}} 
+                                        onSuccess={() => {}}
+                                    />
                                 </div>
                             </CardContent>
                         </Card>
@@ -502,9 +599,9 @@ export function UserProfilePage() {
                                         <TableRow>
                                             <TableHead>Πακέτο</TableHead>
                                             <TableHead>Κατάσταση</TableHead>
-                                            <TableHead>Απομένουν</TableHead>
-                                            <TableHead>Ημ/νία Λήξης</TableHead>
-                                            <TableHead className="text-right">Ενέργειες</TableHead>
+                                                <TableHead>Απομένουν</TableHead>
+                                                <TableHead>Ημ/νία Λήξης</TableHead>
+                                                <TableHead className="text-right">Ενέργειες</TableHead>
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
@@ -512,8 +609,8 @@ export function UserProfilePage() {
                                             <TableRow key={p.id}>
                                                 <TableCell className="font-medium">{p.name}</TableCell>
                                                 <TableCell>{getStatusBadge(p.status)}</TableCell>
-                                                <TableCell>{isFinite(p.remainingSessions) ? p.remainingSessions : 'Απεριόριστες'}</TableCell>
-                                                <TableCell>{new Date(p.expiryDate).toLocaleDateString('el-GR')}</TableCell>
+                                                <TableCell>{getRemainingSessionsLabel(p)}</TableCell>
+                                                <TableCell>{getExpiryDateLabel(p)}</TableCell>
                                                 <TableCell className="text-right space-x-1">
                                                     <Button variant="outline" size="sm" onClick={() => handleTogglePause(p.id)} disabled={p.status === 'expired'}>
                                                         {p.status === 'active' ? <Pause className="h-4 w-4 mr-1"/> : <Play className="h-4 w-4 mr-1"/>}
@@ -522,6 +619,9 @@ export function UserProfilePage() {
                                                     <Button variant="outline" size="sm" onClick={() => handleExtend(p.id)} disabled={p.status === 'expired'}>
                                                         <CalendarPlus className="h-4 w-4 mr-1"/>
                                                         Επέκταση
+                                                    </Button>
+                                                    <Button variant="destructive" size="sm" onClick={() => handleDeleteAssignedPackage(p.id)}>
+                                                        Διαγραφή
                                                     </Button>
                                                 </TableCell>
                                             </TableRow>
@@ -621,6 +721,25 @@ export function UserProfilePage() {
                     </main>
                 </div>
             </div>
+            
+            {/* Delete Confirmation Dialog */}
+            <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Επιβεβαίωση Διαγραφής</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Είστε σίγουροι ότι θέλετε να διαγράψετε αυτό το πακέτο από τον πελάτη; 
+                            Αυτή η ενέργεια δεν μπορεί να αναιρεθεί.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Ακύρωση</AlertDialogCancel>
+                        <AlertDialogAction onClick={confirmDeletePackage} className="bg-red-600 hover:bg-red-700">
+                            Διαγραφή
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </SidebarProvider>
     );
 } 

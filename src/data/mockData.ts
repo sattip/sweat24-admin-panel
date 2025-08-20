@@ -32,6 +32,18 @@ export type User = {
   avatar: string | null;
   packages: UserPackage[];
   activityLog: ActivityLog[];
+  
+  // New fields from backend API
+  date_of_birth?: string | null;
+  gender?: "male" | "female" | "other" | "prefer_not_to_say" | null;
+  weight?: number | null;
+  height?: number | null;
+  registration_status?: "pending" | "completed";
+  approved_at?: string | null;
+  profile_last_updated?: string | null;
+  is_minor?: boolean;
+  created_at?: string;
+  medical_history?: string | any; // For backward compatibility
 };
 
 export type Package = {

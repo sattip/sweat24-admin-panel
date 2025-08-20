@@ -49,6 +49,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { bookingsApi, usersApi, classesApi, instructorsApi, bookingRequestsApi } from "@/services/api";
 import type { Booking, User as UserType, Class, Instructor } from "@/data/mockData";
 import { notifyGracefulCancellation } from "@/utils/notifications";
+import BookingRequestsCalendar from "@/components/BookingRequestsCalendar";
 
 type DialogType = 'transfer' | 'new' | null;
 
@@ -122,10 +123,14 @@ export function BookingsPage() {
   });
 
   // State for confirmation
-  const [confirmData, setConfirmData] = useState({
+  const [confirmData, setConfirmData] = useState<{
+    date: string;
+    time: string;
+    instructor_id: number | null;
+  }>({
     date: '',
     time: '',
-    instructor_id: ''
+    instructor_id: null
   });
 
   // State for rejection
@@ -297,6 +302,15 @@ export function BookingsPage() {
         description: `Η κράτηση για ${customer_name} δημιουργήθηκε με επιτυχία.`,
       });
 
+      // Ειδοποίησε άλλα views (π.χ. προφίλ πελάτη) ώστε να μειώσουν τις συνεδρίες τοπικά
+      if (userId) {
+        try {
+          window.dispatchEvent(new CustomEvent('sweat:session-consumed', {
+            detail: { userId, delta: -1, reason: 'booking_create' }
+          }));
+        } catch {}
+      }
+
       // Reset form
       setNewBookingData({
         userId: '',
@@ -398,17 +412,21 @@ export function BookingsPage() {
   };
 
   const handleConfirmRequest = async () => {
-    if (!confirmDialog.request || !confirmData.date || !confirmData.time) {
+    if (!confirmDialog.request || !confirmData.date || !confirmData.time || !confirmData.instructor_id) {
       toast({
         title: "Σφάλμα",
-        description: "Παρακαλώ συμπληρώστε ημερομηνία και ώρα.",
+        description: "Παρακαλώ συμπληρώστε ημερομηνία, ώρα και προπονητή.",
         variant: "destructive",
       });
       return;
     }
 
     try {
-      const response = await bookingRequestsApi.confirm(confirmDialog.request.id, confirmData);
+      const response = await bookingRequestsApi.confirm(confirmDialog.request.id, {
+        confirmed_date: confirmData.date,
+        confirmed_time: confirmData.time,
+        instructor_id: confirmData.instructor_id || undefined
+      });
       
       // Update the request in the list
       setBookingRequests(bookingRequests.map(req => 
@@ -420,13 +438,23 @@ export function BookingsPage() {
       const bookingsData = Array.isArray(bookingsResponse) ? bookingsResponse : (bookingsResponse.data || []);
       setBookings(bookingsData);
 
+      // Αν δημιουργήθηκε κράτηση με συνδεδεμένο χρήστη, ενημέρωσε για κατανάλωση συνεδρίας
+      try {
+        const createdBookingUserId = (response as any)?.booking?.user_id || (response as any)?.booking?.userId || null;
+        if (createdBookingUserId) {
+          window.dispatchEvent(new CustomEvent('sweat:session-consumed', {
+            detail: { userId: String(createdBookingUserId), delta: -1, reason: 'booking_confirm_from_request' }
+          }));
+        }
+      } catch {}
+
       toast({
         title: "Επιτυχία!",
         description: response.message || "Το ραντεβού οριστικοποιήθηκε επιτυχώς.",
       });
 
       setConfirmDialog({open: false, request: null});
-      setConfirmData({date: '', time: '', instructor_id: ''});
+      setConfirmData({date: '', time: '', instructor_id: null});
     } catch (error) {
       console.error('Error confirming request:', error);
       toast({
@@ -1033,9 +1061,19 @@ export function BookingsPage() {
               </TabsContent>
               
               <TabsContent value="requests">
+                {/* Visual Calendar */}
+                <BookingRequestsCalendar 
+                  trainers={instructors}
+                  onRequestClick={(request) => {
+                    console.log('Request clicked:', request);
+                    // You can add modal or other interaction here
+                  }}
+                />
+
+                {/* Existing Requests Table */}
                 <Card>
                   <CardHeader>
-                    <CardTitle>Αιτήματα Ραντεβού EMS/Personal</CardTitle>
+                    <CardTitle>Αιτήματα Ραντεβού - Λίστα</CardTitle>
                     <CardDescription>
                       Διαχειριστείτε τα αιτήματα για EMS και Personal Training
                     </CardDescription>
@@ -1076,17 +1114,19 @@ export function BookingsPage() {
                                 <div className="flex items-center space-x-3">
                                   <Avatar className="h-8 w-8">
                                     <AvatarFallback>
-                                      {request.customer_name?.slice(0, 2).toUpperCase() || 'XX'}
+                                      {(request.customer_name || request.client_name || request.user?.name || 'N/A').slice(0, 2).toUpperCase()}
                                     </AvatarFallback>
                                   </Avatar>
                                   <div>
-                                    <div className="font-medium">{request.customer_name}</div>
-                                    <div className="text-sm text-muted-foreground">
-                                      {request.customer_email}
+                                    <div className="font-medium">
+                                      {request.customer_name || request.client_name || request.user?.name || 'Άγνωστος'}
                                     </div>
-                                    {request.customer_phone && (
+                                    <div className="text-sm text-muted-foreground">
+                                      {request.customer_email || request.user?.email || 'Χωρίς email'}
+                                    </div>
+                                    {(request.customer_phone || request.user?.phone) && (
                                       <div className="text-sm text-muted-foreground">
-                                        {request.customer_phone}
+                                        {request.customer_phone || request.user?.phone}
                                       </div>
                                     )}
                                   </div>
@@ -1149,7 +1189,7 @@ export function BookingsPage() {
                                         setConfirmData({
                                           date: request.preferred_dates?.[0] || '',
                                           time: request.preferred_times?.[0] || '',
-                                          instructor_id: ''
+                                          instructor_id: null
                                         });
                                       }}
                                     >
@@ -1192,9 +1232,9 @@ export function BookingsPage() {
             <div className="space-y-4">
               <div className="p-4 bg-muted rounded-lg">
                 <h4 className="font-semibold mb-2">Στοιχεία Πελάτη</h4>
-                <p className="text-sm"><strong>Όνομα:</strong> {confirmDialog.request.customer_name}</p>
-                <p className="text-sm"><strong>Email:</strong> {confirmDialog.request.customer_email}</p>
-                {confirmDialog.request.customer_phone && (
+                <p className="text-sm"><strong>Όνομα:</strong> {confirmDialog.request.customer_name || confirmDialog.request.client_name || confirmDialog.request.user?.name || 'Άγνωστος'}</p>
+                <p className="text-sm"><strong>Email:</strong> {confirmDialog.request.customer_email || confirmDialog.request.user?.email || 'Χωρίς email'}</p>
+                {(confirmDialog.request.customer_phone || confirmDialog.request.user?.phone) && (
                   <p className="text-sm"><strong>Τηλέφωνο:</strong> {confirmDialog.request.customer_phone}</p>
                 )}
                 {confirmDialog.request.message && (
@@ -1221,23 +1261,24 @@ export function BookingsPage() {
                 />
               </div>
               
-              {confirmDialog.request.type === 'personal' && (
-                <div>
-                  <label className="text-sm font-medium">Προπονητής (προαιρετικό)</label>
-                  <Select value={confirmData.instructor_id} onValueChange={(value) => setConfirmData({...confirmData, instructor_id: value})}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Επιλέξτε προπονητή" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {instructors.map((instructor) => (
-                        <SelectItem key={instructor.id} value={instructor.id}>
-                          {instructor.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
+              <div>
+                <label className="text-sm font-medium">Προπονητής *</label>
+                <Select 
+                  value={confirmData.instructor_id?.toString() || ''} 
+                  onValueChange={(value) => setConfirmData({...confirmData, instructor_id: parseInt(value)})}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Επιλέξτε προπονητή" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {instructors.map((instructor) => (
+                      <SelectItem key={instructor.id} value={instructor.id.toString()}>
+                        {instructor.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           )}
           <div className="flex justify-end space-x-2">
@@ -1264,7 +1305,7 @@ export function BookingsPage() {
             <div className="space-y-4">
               <div className="p-4 bg-muted rounded-lg">
                 <h4 className="font-semibold mb-2">Στοιχεία Αιτήματος</h4>
-                <p className="text-sm"><strong>Πελάτης:</strong> {rejectDialog.request.customer_name}</p>
+                <p className="text-sm"><strong>Πελάτης:</strong> {rejectDialog.request.customer_name || rejectDialog.request.client_name || rejectDialog.request.user?.name || 'Άγνωστος'}</p>
                 <p className="text-sm"><strong>Τύπος:</strong> {rejectDialog.request.type === 'ems' ? 'EMS' : 'Personal Training'}</p>
               </div>
               

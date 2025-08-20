@@ -29,39 +29,43 @@ const SignatureDisplay: React.FC<SignatureDisplayProps> = ({ signatures }) => {
     );
   }
 
+  // Sort signatures by date and show only the most recent one
+  const mostRecentSignature = signatures.sort((a, b) => 
+    new Date(b.signed_at).getTime() - new Date(a.signed_at).getTime()
+  )[0];
+
   return (
     <div className="space-y-4">
-      <h3 className="text-lg font-semibold">Ψηφιακές Υπογραφές</h3>
-      {signatures.map((signature) => (
-        <Card key={signature.id}>
+      {mostRecentSignature && (
+        <Card key={mostRecentSignature.id}>
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
               <FileText className="h-4 w-4" />
-              {signature.document_type === 'terms_and_conditions' ? 'Όροι Χρήσης' : signature.document_type}
-              <span className="text-sm text-muted-foreground">(v{signature.document_version})</span>
+              {mostRecentSignature.document_type === 'terms_and_conditions' ? 'Όροι Χρήσης' : mostRecentSignature.document_type}
+              <span className="text-sm text-muted-foreground">(v{mostRecentSignature.document_version})</span>
             </CardTitle>
             <CardDescription className="flex items-center gap-4">
               <span className="flex items-center gap-1">
                 <Calendar className="h-3 w-3" />
-                {format(new Date(signature.signed_at), 'dd MMMM yyyy, HH:mm', { locale: el })}
+                {format(new Date(mostRecentSignature.signed_at), 'dd MMMM yyyy, HH:mm', { locale: el })}
               </span>
               <span className="flex items-center gap-1">
                 <MapPin className="h-3 w-3" />
-                IP: {signature.ip_address}
+                IP: {mostRecentSignature.ip_address}
               </span>
             </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="border rounded-lg p-2 bg-gray-50">
               <img 
-                src={signature.signature_data} 
+                src={mostRecentSignature.signature_data} 
                 alt="Υπογραφή" 
                 className="max-h-32 w-auto mx-auto"
               />
             </div>
           </CardContent>
         </Card>
-      ))}
+      )}
     </div>
   );
 };

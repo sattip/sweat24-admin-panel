@@ -41,6 +41,9 @@ export function PackagesPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isCreating, setIsCreating] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [editingPackage, setEditingPackage] = useState<any | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [formData, setFormData] = useState({
     name: "",
@@ -49,6 +52,14 @@ export function PackagesPage() {
     duration: 30,
     type: "Personal",
     status: "active",
+  });
+  const [editForm, setEditForm] = useState({
+    name: "",
+    price: 0,
+    sessions: 10,
+    duration: 30,
+    type: "Personal",
+    status: "active" as "active" | "inactive",
   });
 
   // Fetch packages on component mount
@@ -107,6 +118,54 @@ export function PackagesPage() {
       setIsCreating(false);
     }
   };
+
+  // Open edit dialog with prefilled data
+  const openEditDialog = (pkg: any) => {
+    setEditingPackage(pkg);
+    setEditForm({
+      name: pkg.name || "",
+      price: Number(pkg.price) || 0,
+      sessions: isFinite(pkg.sessions) ? Number(pkg.sessions) : 0,
+      duration: Number(pkg.duration) || 30,
+      type: pkg.type || "Personal",
+      status: (pkg.status === 'inactive' ? 'inactive' : 'active'),
+    });
+    setIsEditDialogOpen(true);
+  };
+
+  const handleUpdatePackage = async () => {
+    if (!editingPackage?.id) return;
+    try {
+      setIsUpdating(true);
+      if (!editForm.name || editForm.price <= 0) {
+        toast({ title: "Σφάλμα", description: "Το όνομα και η τιμή είναι υποχρεωτικά.", variant: "destructive" });
+        return;
+      }
+      const response = await packagesApi.update(editingPackage.id.toString(), editForm);
+      const updated = (response as any)?.data || response;
+      setPackages(prev => prev.map(p => (p.id === editingPackage.id ? { ...p, ...updated } : p)));
+      setIsEditDialogOpen(false);
+      toast({ title: "Επιτυχία", description: `Το πακέτο "${editForm.name}" ενημερώθηκε.` });
+    } catch (error) {
+      console.error('Error updating package:', error);
+      toast({ title: "Σφάλμα", description: "Αποτυχία ενημέρωσης πακέτου.", variant: "destructive" });
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  const handleDeletePackage = async (pkg: any) => {
+    try {
+      const confirmed = window.confirm(`Διαγραφή πακέτου "${pkg.name}";`);
+      if (!confirmed) return;
+      await packagesApi.delete(pkg.id.toString());
+      setPackages(prev => prev.filter(p => p.id !== pkg.id));
+      toast({ title: "Διαγράφηκε", description: `Το πακέτο "${pkg.name}" διαγράφηκε.` });
+    } catch (error) {
+      console.error('Error deleting package:', error);
+      toast({ title: "Σφάλμα", description: "Αποτυχία διαγραφής πακέτου.", variant: "destructive" });
+    }
+  };
   
   const resetForm = () => {
     setFormData({
@@ -160,9 +219,7 @@ export function PackagesPage() {
                 <DialogContent>
                   <DialogHeader>
                     <DialogTitle>Δημιουργία Νέου Πακέτου</DialogTitle>
-                    <DialogDescription>
-                      Ορίστε τα χαρακτηριστικά του νέου πακέτου.
-                    </DialogDescription>
+                    <DialogDescription>Ορίστε τα χαρακτηριστικά του νέου πακέτου.</DialogDescription>
                   </DialogHeader>
                   <div className="grid gap-4 py-4">
                     <div className="grid gap-2">
@@ -209,6 +266,75 @@ export function PackagesPage() {
                       </>
                     ) : (
                       "Δημιουργία Πακέτου"
+                    )}
+                  </Button>
+                </DialogContent>
+              </Dialog>
+
+              {/* Edit Package Dialog */}
+              <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Επεξεργασία Πακέτου</DialogTitle>
+                    <DialogDescription>Τροποποιήστε τα στοιχεία του πακέτου και αποθηκεύστε.</DialogDescription>
+                  </DialogHeader>
+                  <div className="grid gap-4 py-4">
+                    <div className="grid gap-2">
+                      <Label htmlFor="edit_name">Όνομα Πακέτου</Label>
+                      <Input id="edit_name" value={editForm.name} onChange={e => setEditForm({ ...editForm, name: e.target.value })} />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="grid gap-2">
+                        <Label htmlFor="edit_price">Τιμή (€)</Label>
+                        <Input id="edit_price" type="number" value={editForm.price} onChange={e => setEditForm({ ...editForm, price: Number(e.target.value) })} />
+                      </div>
+                      <div className="grid gap-2">
+                        <Label htmlFor="edit_sessions">Αριθμός Συνεδριών</Label>
+                        <Input id="edit_sessions" type="number" value={editForm.sessions} onChange={e => setEditForm({ ...editForm, sessions: Number(e.target.value) })} />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="grid gap-2">
+                        <Label htmlFor="edit_duration">Διάρκεια (ημέρες)</Label>
+                        <Input id="edit_duration" type="number" value={editForm.duration} onChange={e => setEditForm({ ...editForm, duration: Number(e.target.value) })} />
+                      </div>
+                      <div className="grid gap-2">
+                        <Label htmlFor="edit_type">Τύπος Πακέτου</Label>
+                        <Select value={editForm.type} onValueChange={value => setEditForm({ ...editForm, type: value })}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Επιλέξτε τύπο" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="Personal">Personal</SelectItem>
+                            <SelectItem value="Group">Group</SelectItem>
+                            <SelectItem value="Yoga/Pilates">Yoga/Pilates</SelectItem>
+                            <SelectItem value="Trial">Trial</SelectItem>
+                            <SelectItem value="Other">Άλλο</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="edit_status">Κατάσταση</Label>
+                      <Select value={editForm.status} onValueChange={(value: any) => setEditForm({ ...editForm, status: value })}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Επιλέξτε κατάσταση" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="active">Ενεργό</SelectItem>
+                          <SelectItem value="inactive">Ανενεργό</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  <Button onClick={handleUpdatePackage} className="w-full" disabled={isUpdating}>
+                    {isUpdating ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Αποθήκευση...
+                      </>
+                    ) : (
+                      'Αποθήκευση'
                     )}
                   </Button>
                 </DialogContent>
@@ -275,10 +401,10 @@ export function PackagesPage() {
                           <TableCell className="text-center">{getStatusBadge(pkg.status)}</TableCell>
                           <TableCell className="text-right font-semibold">€{pkg.price}</TableCell>
                           <TableCell className="text-right">
-                            <Button variant="ghost" size="icon" title="Επεξεργασία">
+                            <Button variant="ghost" size="icon" title="Επεξεργασία" onClick={() => openEditDialog(pkg)}>
                               <Edit className="h-4 w-4" />
                             </Button>
-                            <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" title="Διαγραφή">
+                            <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" title="Διαγραφή" onClick={() => handleDeletePackage(pkg)}>
                               <Trash2 className="h-4 w-4" />
                             </Button>
                           </TableCell>

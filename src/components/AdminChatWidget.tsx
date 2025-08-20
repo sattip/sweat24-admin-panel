@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { MessageCircle, Send, Check, X, Archive, UserCircle } from 'lucide-react';
+import { MessageCircle, Send, Check, X, Archive, UserCircle, Plus, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -7,10 +7,28 @@ import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
-import { chatApi } from '@/services/apiService';
+import { chatApi, usersApi } from '@/services/apiService';
 import { useAuth } from '@/contexts/AuthContext';
+import { useChat } from '@/contexts/ChatContext';
 import { format } from 'date-fns';
 import { el } from 'date-fns/locale';
+import { Textarea } from '@/components/ui/textarea';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { useToast } from "@/components/ui/use-toast";
 
 interface Message {
   id: number;
@@ -48,12 +66,34 @@ export function AdminChatWidget() {
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
   const [activeTab, setActiveTab] = useState('active');
+  const [showNewConversation, setShowNewConversation] = useState(false);
+  const [newConversationUserId, setNewConversationUserId] = useState('');
+  const [newConversationMessage, setNewConversationMessage] = useState('');
+  const [availableUsers, setAvailableUsers] = useState<any[]>([]);
+  const [userSearchTerm, setUserSearchTerm] = useState('');
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const { user } = useAuth();
+  const { setTotalUnreadCount, fetchUnreadCount, selectedUserId, selectedUserName, clearSelectedUser } = useChat();
+  const { toast } = useToast();
 
-  // Calculate total unread messages
-  const totalUnread = conversations.reduce((sum, conv) => sum + conv.admin_unread_count, 0);
+  // Calculate total unread messages - only from active conversations
+  const totalUnread = activeTab === 'active' 
+    ? conversations.reduce((sum, conv) => {
+        const count = conv.admin_unread_count;
+        // Debug logging
+        if (count > 0) {
+          console.log(`Unread messages from ${conv.user.name}:`, count);
+        }
+        return sum + (count || 0);
+      }, 0)
+    : 0;
+
+  // Update context when total unread changes
+  useEffect(() => {
+    console.log('Updating unread count:', { activeTab, totalUnread, conversations });
+    setTotalUnreadCount(totalUnread);
+  }, [totalUnread, setTotalUnreadCount]);
 
   // Fetch conversations when widget opens or tab changes
   useEffect(() => {
@@ -77,15 +117,108 @@ export function AdminChatWidget() {
     }
   }, [selectedConversation?.messages]);
 
+  // Handle selected user from context (e.g., from Users page)
+  useEffect(() => {
+    if (selectedUserId && selectedUserName) {
+      setIsOpen(true);
+      setShowNewConversation(true);
+      setNewConversationUserId(selectedUserId.toString());
+      fetchAvailableUsers();
+      clearSelectedUser(); // Clear after using
+    }
+  }, [selectedUserId, selectedUserName]);
+
   const fetchConversations = async () => {
     try {
       setLoading(true);
       const response = await chatApi.getConversations(activeTab);
-      setConversations(response || []);
+      const convs = response || [];
+      setConversations(convs);
+      
+      // Debug: Log any unread messages
+      if (activeTab === 'active') {
+        const unreadDetails = convs.filter((c: any) => c.admin_unread_count > 0);
+        if (unreadDetails.length > 0) {
+          console.log('Conversations with unread messages:', unreadDetails);
+        }
+      }
     } catch (error) {
       console.error('Error fetching conversations:', error);
+      setConversations([]);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchAvailableUsers = async () => {
+    try {
+      const response = await usersApi.getAll();
+      let users = [];
+      if (Array.isArray(response)) {
+        users = response;
+      } else if (response?.data && Array.isArray(response.data)) {
+        users = response.data;
+      } else if (response?.users && Array.isArray(response.users)) {
+        users = response.users;
+      }
+      
+      // Filter active users who don't already have active conversations
+      const activeUsers = users.filter((user: any) => 
+        (user.status === 'active' || user.status === 'pending_approval')
+      );
+      
+      setAvailableUsers(activeUsers);
+    } catch (error) {
+      console.error('Error fetching users:', error);
+    }
+  };
+
+  const startNewConversation = async () => {
+    if (!newConversationUserId || !newConversationMessage.trim()) return;
+
+    try {
+      setSending(true);
+      
+      // Create new conversation via API
+      const response = await chatApi.startConversation(
+        parseInt(newConversationUserId), 
+        newConversationMessage.trim()
+      );
+      
+      // Success - refresh and show the new conversation
+      setShowNewConversation(false);
+      setNewConversationUserId('');
+      setNewConversationMessage('');
+      await fetchConversations();
+      
+      // Select the new conversation if it was created
+      if (response?.conversation) {
+        setSelectedConversation(response.conversation);
+      }
+      
+      toast({
+        title: "Επιτυχία",
+        description: "Η συνομιλία ξεκίνησε επιτυχώς.",
+      });
+    } catch (error: any) {
+      console.error('Error starting conversation:', error);
+      
+      // Show appropriate error message based on status code
+      if (error?.status === 404 || error?.status === 405) {
+        toast({
+          title: "Λειτουργία υπό ανάπτυξη",
+          description: "Η δημιουργία νέας συνομιλίας θα είναι διαθέσιμη σύντομα.",
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Σφάλμα",
+          description: "Δεν ήταν δυνατή η έναρξη συνομιλίας. Παρακαλώ δοκιμάστε ξανά.",
+          variant: "destructive",
+        });
+      }
+    } finally {
+      setSending(false);
     }
   };
 
@@ -192,27 +325,126 @@ export function AdminChatWidget() {
           <div className="p-4 border-b bg-purple-600 text-white rounded-tl-lg">
             <div className="flex items-center justify-between">
               <h3 className="font-semibold">Συνομιλίες Πελατών</h3>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setIsOpen(false)}
-                className="text-white hover:bg-purple-700"
-              >
-                <X className="h-5 w-5" />
-              </Button>
+              <div className="flex items-center gap-2">
+                <Dialog open={showNewConversation} onOpenChange={setShowNewConversation}>
+                  <DialogTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => fetchAvailableUsers()}
+                      className="text-white hover:bg-purple-700"
+                    >
+                      <Plus className="h-4 w-4 mr-1" />
+                      Νέα Συνομιλία
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="sm:max-w-[500px]">
+                    <DialogHeader>
+                      <DialogTitle>Έναρξη Νέας Συνομιλίας</DialogTitle>
+                      <DialogDescription>
+                        Επιλέξτε έναν πελάτη και στείλτε το πρώτο μήνυμα για να ξεκινήσετε μια νέα συνομιλία.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4 py-4">
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Επιλογή Πελάτη</label>
+                        <Select value={newConversationUserId} onValueChange={setNewConversationUserId}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Επιλέξτε πελάτη..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <div className="p-2">
+                              <Input
+                                placeholder="Αναζήτηση πελάτη..."
+                                value={userSearchTerm}
+                                onChange={(e) => setUserSearchTerm(e.target.value)}
+                                className="mb-2"
+                              />
+                            </div>
+                            {availableUsers
+                              .filter(user => 
+                                user.name.toLowerCase().includes(userSearchTerm.toLowerCase()) ||
+                                user.email.toLowerCase().includes(userSearchTerm.toLowerCase())
+                              )
+                              .map((user) => (
+                                <SelectItem key={user.id} value={user.id.toString()}>
+                                  <div className="flex items-center gap-2">
+                                    <Avatar className="h-6 w-6">
+                                      <AvatarImage src={user.profilePicture} />
+                                      <AvatarFallback>{user.name?.[0]}</AvatarFallback>
+                                    </Avatar>
+                                    <div>
+                                      <div className="font-medium">{user.name}</div>
+                                      <div className="text-xs text-muted-foreground">{user.email}</div>
+                                    </div>
+                                  </div>
+                                </SelectItem>
+                              ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Μήνυμα</label>
+                        <Textarea
+                          placeholder="Γράψτε το μήνυμά σας..."
+                          value={newConversationMessage}
+                          onChange={(e) => setNewConversationMessage(e.target.value)}
+                          className="min-h-[100px]"
+                        />
+                      </div>
+                    </div>
+                    <div className="flex justify-end gap-2">
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          setShowNewConversation(false);
+                          setNewConversationUserId('');
+                          setNewConversationMessage('');
+                        }}
+                      >
+                        Ακύρωση
+                      </Button>
+                      <Button
+                        onClick={startNewConversation}
+                        disabled={!newConversationUserId || !newConversationMessage.trim() || sending}
+                        className="bg-purple-600 hover:bg-purple-700"
+                      >
+                        <Send className="h-4 w-4 mr-2" />
+                        Αποστολή
+                      </Button>
+                    </div>
+                  </DialogContent>
+                </Dialog>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setIsOpen(false)}
+                  className="text-white hover:bg-purple-700"
+                >
+                  <X className="h-5 w-5" />
+                </Button>
+              </div>
             </div>
           </div>
 
           {/* Tabs */}
           <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
             <TabsList className="grid w-full grid-cols-3 p-1">
-              <TabsTrigger value="active">Ενεργές</TabsTrigger>
+              <TabsTrigger value="active">
+                Ενεργές
+                {activeTab !== 'active' && conversations.length > 0 && (
+                  <Badge className="ml-2 bg-red-500 text-white h-5 px-1">
+                    {conversations.reduce((sum, conv) => sum + (conv.admin_unread_count || 0), 0)}
+                  </Badge>
+                )}
+              </TabsTrigger>
               <TabsTrigger value="resolved">Επιλυμένες</TabsTrigger>
               <TabsTrigger value="archived">Αρχείο</TabsTrigger>
             </TabsList>
 
-            <TabsContent value={activeTab} className="flex-1 overflow-hidden">
-              <ScrollArea className="h-full">
+            <TabsContent value={activeTab} className="flex-1 overflow-hidden mt-0">
+              <ScrollArea className="h-[450px]">
                 {loading && conversations.length === 0 ? (
                   <div className="p-4 text-center text-gray-500">Φόρτωση...</div>
                 ) : conversations.length === 0 ? (
