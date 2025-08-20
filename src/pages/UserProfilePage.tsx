@@ -24,6 +24,16 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
     Select,
     SelectContent,
     SelectItem,
@@ -63,6 +73,8 @@ export function UserProfilePage() {
     const [userPackages, setUserPackages] = useState<UserPackage[]>([]);
     const [signatures, setSignatures] = useState<any[]>([]);
     const [loadingSignatures, setLoadingSignatures] = useState(false);
+    const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+    const [packageToDelete, setPackageToDelete] = useState<string | null>(null);
     
     useEffect(() => {
         if (userId) {
@@ -277,17 +289,23 @@ export function UserProfilePage() {
         }));
     };
 
-    const handleDeleteAssignedPackage = async (userPackageId: string) => {
-        if (!userId) return;
-        const confirmed = window.confirm('Σίγουρα θέλετε να διαγράψετε αυτό το πακέτο από τον πελάτη;');
-        if (!confirmed) return;
+    const handleDeleteAssignedPackage = (userPackageId: string) => {
+        setPackageToDelete(userPackageId);
+        setDeleteConfirmOpen(true);
+    };
+
+    const confirmDeletePackage = async () => {
+        if (!userId || !packageToDelete) return;
         try {
-            await usersApi.deleteAssignedPackage(userId, userPackageId);
-            setUserPackages(prev => prev.filter(p => p.id !== userPackageId));
+            await usersApi.deleteAssignedPackage(userId, packageToDelete);
+            setUserPackages(prev => prev.filter(p => p.id !== packageToDelete));
             toast({ title: 'Επιτυχία', description: 'Το πακέτο διαγράφηκε από τον πελάτη.' });
         } catch (error) {
             console.error('Error deleting assigned package:', error);
             toast({ title: 'Σφάλμα', description: 'Αποτυχία διαγραφής πακέτου.', variant: 'destructive' });
+        } finally {
+            setDeleteConfirmOpen(false);
+            setPackageToDelete(null);
         }
     };
     
@@ -703,6 +721,25 @@ export function UserProfilePage() {
                     </main>
                 </div>
             </div>
+            
+            {/* Delete Confirmation Dialog */}
+            <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Επιβεβαίωση Διαγραφής</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Είστε σίγουροι ότι θέλετε να διαγράψετε αυτό το πακέτο από τον πελάτη; 
+                            Αυτή η ενέργεια δεν μπορεί να αναιρεθεί.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Ακύρωση</AlertDialogCancel>
+                        <AlertDialogAction onClick={confirmDeletePackage} className="bg-red-600 hover:bg-red-700">
+                            Διαγραφή
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </SidebarProvider>
     );
 } 

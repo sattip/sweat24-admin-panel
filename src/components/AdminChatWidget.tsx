@@ -179,78 +179,44 @@ export function AdminChatWidget() {
     try {
       setSending(true);
       
-      // Try to create new conversation via API
-      try {
-        const response = await chatApi.startConversation(
-          parseInt(newConversationUserId), 
-          newConversationMessage.trim()
-        );
-        
-        // Success - refresh and show the new conversation
-        setShowNewConversation(false);
-        setNewConversationUserId('');
-        setNewConversationMessage('');
-        await fetchConversations();
-        
-        // Select the new conversation if it was created
-        if (response?.conversation) {
-          setSelectedConversation(response.conversation);
-        }
-        
-        toast({
-          title: "Επιτυχία",
-          description: "Η συνομιλία ξεκίνησε επιτυχώς.",
-        });
-        return;
-      } catch (apiError: any) {
-        // If API doesn't support it yet, try alternative approach
-        if (apiError?.message?.includes('405') || apiError?.message?.includes('404')) {
-          // Check if conversation already exists
-          const existingConversations = await chatApi.getConversations('active');
-          const existingConv = existingConversations?.find((conv: any) => 
-            conv.user.id === parseInt(newConversationUserId)
-          );
-
-          if (existingConv) {
-            // If conversation exists, select it and send message
-            setSelectedConversation(existingConv);
-            setShowNewConversation(false);
-            setMessage(newConversationMessage);
-            // Wait a bit for state to update
-            setTimeout(() => {
-              sendMessage();
-            }, 100);
-            toast({
-              title: "Συνομιλία βρέθηκε",
-              description: "Το μήνυμα θα σταλεί στην υπάρχουσα συνομιλία.",
-            });
-          } else {
-            // API doesn't support creating new conversations yet
-            toast({
-              title: "Προσωρινά μη διαθέσιμο",
-              description: "Η δημιουργία νέας συνομιλίας απαιτεί ενημέρωση του συστήματος. Παρακαλώ επικοινωνήστε με τον τεχνικό σας.",
-              variant: "destructive",
-            });
-          }
-        } else {
-          throw apiError;
-        }
-      }
+      // Create new conversation via API
+      const response = await chatApi.startConversation(
+        parseInt(newConversationUserId), 
+        newConversationMessage.trim()
+      );
       
-      // Reset form
+      // Success - refresh and show the new conversation
+      setShowNewConversation(false);
       setNewConversationUserId('');
       setNewConversationMessage('');
-      setShowNewConversation(false);
-      
-      // Refresh conversations
       await fetchConversations();
-    } catch (error) {
-      console.error('Error starting conversation:', error);
+      
+      // Select the new conversation if it was created
+      if (response?.conversation) {
+        setSelectedConversation(response.conversation);
+      }
+      
       toast({
-        title: "Σφάλμα",
-        description: "Δεν ήταν δυνατή η έναρξη συνομιλίας. Παρακαλώ δοκιμάστε ξανά.",
-        variant: "destructive",
+        title: "Επιτυχία",
+        description: "Η συνομιλία ξεκίνησε επιτυχώς.",
       });
+    } catch (error: any) {
+      console.error('Error starting conversation:', error);
+      
+      // Show appropriate error message based on status code
+      if (error?.status === 404 || error?.status === 405) {
+        toast({
+          title: "Λειτουργία υπό ανάπτυξη",
+          description: "Η δημιουργία νέας συνομιλίας θα είναι διαθέσιμη σύντομα.",
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Σφάλμα",
+          description: "Δεν ήταν δυνατή η έναρξη συνομιλίας. Παρακαλώ δοκιμάστε ξανά.",
+          variant: "destructive",
+        });
+      }
     } finally {
       setSending(false);
     }

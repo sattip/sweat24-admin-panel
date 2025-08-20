@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { chatApi } from '@/services/apiService';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -10,6 +10,7 @@ interface ChatContextType {
   selectedUserId: number | null;
   selectedUserName: string | null;
   clearSelectedUser: () => void;
+  isConnected: boolean;
 }
 
 const ChatContext = createContext<ChatContextType | undefined>(undefined);
@@ -18,7 +19,11 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
   const [totalUnreadCount, setTotalUnreadCount] = useState(0);
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
   const [selectedUserName, setSelectedUserName] = useState<string | null>(null);
+  const [isConnected, setIsConnected] = useState(false);
   const { user } = useAuth();
+  const wsRef = useRef<WebSocket | null>(null);
+  const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const reconnectAttemptsRef = useRef(0);
 
   const fetchUnreadCount = async () => {
     if (!user) return;
@@ -55,13 +60,138 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     setSelectedUserName(null);
   };
 
-  // Fetch unread count on mount and poll every 10 seconds
+  const connectWebSocket = () => {
+    if (!user) return;
+
+    try {
+      // Get WebSocket URL from environment or API base URL
+      const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const wsHost = window.location.host;
+      const wsUrl = `${wsProtocol}//${wsHost}/ws/chat`;
+
+      wsRef.current = new WebSocket(wsUrl);
+
+      wsRef.current.onopen = () => {
+        console.log('WebSocket connected');
+        setIsConnected(true);
+        reconnectAttemptsRef.current = 0;
+        // Send authentication if needed
+        if (wsRef.current?.readyState === WebSocket.OPEN) {
+          wsRef.current.send(JSON.stringify({ 
+            type: 'auth', 
+            token: localStorage.getItem('token') 
+          }));
+        }
+      };
+
+      wsRef.current.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          
+          // Handle different message types
+          switch (data.type) {
+            case 'unread_count_update':
+              setTotalUnreadCount(data.count || 0);
+              break;
+            case 'new_message':
+              // Fetch updated unread count when new message arrives
+              fetchUnreadCount();
+              break;
+            case 'conversation_update':
+              // Refresh conversations if needed
+              fetchUnreadCount();
+              break;
+            default:
+              console.log('Unknown WebSocket message type:', data.type);
+          }
+        } catch (error) {
+          console.error('Error parsing WebSocket message:', error);
+        }
+      };
+
+      wsRef.current.onerror = (error) => {
+        console.error('WebSocket error:', error);
+        setIsConnected(false);
+      };
+
+      wsRef.current.onclose = () => {
+        console.log('WebSocket disconnected');
+        setIsConnected(false);
+        wsRef.current = null;
+        
+        // Implement exponential backoff for reconnection
+        if (user && reconnectAttemptsRef.current < 5) {
+          const delay = Math.min(1000 * Math.pow(2, reconnectAttemptsRef.current), 30000);
+          reconnectAttemptsRef.current++;
+          
+          console.log(`Attempting to reconnect in ${delay}ms...`);
+          reconnectTimeoutRef.current = setTimeout(() => {
+            connectWebSocket();
+          }, delay);
+        } else {
+          // Fall back to polling if WebSocket fails repeatedly
+          console.log('WebSocket reconnection failed, falling back to polling');
+          startPollingFallback();
+        }
+      };
+    } catch (error) {
+      console.error('Error creating WebSocket connection:', error);
+      // Fall back to polling if WebSocket is not supported
+      startPollingFallback();
+    }
+  };
+
+  const startPollingFallback = () => {
+    // Only use polling as a fallback when WebSocket fails
+    const interval = setInterval(fetchUnreadCount, 30000); // Poll every 30 seconds instead of 10
+    return () => clearInterval(interval);
+  };
+
+  const disconnectWebSocket = () => {
+    if (reconnectTimeoutRef.current) {
+      clearTimeout(reconnectTimeoutRef.current);
+      reconnectTimeoutRef.current = null;
+    }
+    
+    if (wsRef.current) {
+      wsRef.current.close();
+      wsRef.current = null;
+    }
+    
+    setIsConnected(false);
+  };
+
+  // Connect WebSocket when user is authenticated
   useEffect(() => {
     if (user) {
+      // Initial fetch
       fetchUnreadCount();
-      const interval = setInterval(fetchUnreadCount, 10000);
-      return () => clearInterval(interval);
+      
+      // Try to establish WebSocket connection
+      connectWebSocket();
+      
+      return () => {
+        disconnectWebSocket();
+      };
     }
+  }, [user]);
+
+  // Handle page visibility changes to manage connection
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        // Disconnect when page is hidden to save resources
+        disconnectWebSocket();
+      } else if (user && !wsRef.current) {
+        // Reconnect when page becomes visible
+        connectWebSocket();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
   }, [user]);
 
   return (
@@ -72,7 +202,8 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
       openChatWithUser,
       selectedUserId,
       selectedUserName,
-      clearSelectedUser
+      clearSelectedUser,
+      isConnected
     }}>
       {children}
     </ChatContext.Provider>

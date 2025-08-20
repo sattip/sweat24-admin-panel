@@ -555,16 +555,10 @@ export const bookingRequestsApi = {
     return apiRequest('/api/v1/admin/booking-requests');
   },
 
-  confirm: async (id: string, data: { date: string; time: string; instructor_id?: number }): Promise<{ message: string; booking?: any }> => {
-    // Backend expects confirmed_date and confirmed_time
-    const payload = {
-      confirmed_date: data.date,
-      confirmed_time: data.time,
-      instructor_id: data.instructor_id
-    };
+  confirm: async (id: string, data: { confirmed_date: string; confirmed_time: string; instructor_id?: number }): Promise<{ message: string; booking?: any }> => {
     return apiRequest(`/api/v1/admin/booking-requests/${id}/confirm`, {
       method: 'POST',
-      body: JSON.stringify(payload)
+      body: JSON.stringify(data)
     });
   },
 

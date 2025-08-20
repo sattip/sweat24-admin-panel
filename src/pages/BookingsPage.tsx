@@ -423,8 +423,8 @@ export function BookingsPage() {
 
     try {
       const response = await bookingRequestsApi.confirm(confirmDialog.request.id, {
-        date: confirmData.date,
-        time: confirmData.time,
+        confirmed_date: confirmData.date,
+        confirmed_time: confirmData.time,
         instructor_id: confirmData.instructor_id || undefined
       });
       
