@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, forwardRef, useImperativeHandle } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
@@ -7,32 +7,26 @@ import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Clock, User } from
 import { format, addDays, subDays, startOfDay, parseISO, isSameDay } from 'date-fns';
 import { el } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
-import { bookingRequestsApi } from '@/services/api';
+import { appointmentRequestsApi, AppointmentRequest } from '@/api/modules/specializedServices';
 import { useToast } from '@/components/ui/use-toast';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 
-interface BookingRequest {
-  id: number;
-  customer_name: string;
-  client_name?: string;
-  customer_email: string;
-  trainer_id: number;
-  trainer_name: string;
-  service_type?: string;
+// Use the AppointmentRequest interface from the specialized services API
+type BookingRequest = AppointmentRequest & {
+  trainer_id?: number;
+  trainer_name?: string;
   service_name?: string;
   service_id?: number;
-  type: 'ems' | 'pt' | string;
-  preferred_date: string;
-  preferred_time: string;
-  start_time: string;
-  end_time: string;
-  status: string;
-  notes?: string;
+  type?: 'ems' | 'pt' | string;
+  preferred_date?: string;
+  preferred_time?: string;
+  start_time?: string;
+  end_time?: string;
   user?: {
     name: string;
   };
-}
+};
 
 interface Trainer {
   id: number;
@@ -50,6 +44,11 @@ interface BookingRequestsCalendarImprovedProps {
   trainers: Trainer[];
   services?: Service[];
   onRequestClick?: (request: BookingRequest) => void;
+  refreshTrigger?: number; // Add this to trigger refreshes from parent
+}
+
+export interface BookingRequestsCalendarRef {
+  refresh: () => void;
 }
 
 // Predefined color palette for services (20 colors)
@@ -76,16 +75,22 @@ const SERVICE_COLORS = [
   { bg: 'bg-stone-300', hover: 'hover:bg-stone-400', border: 'border-stone-400', text: 'text-stone-900' },
 ];
 
-const BookingRequestsCalendarImproved: React.FC<BookingRequestsCalendarImprovedProps> = ({ 
+const BookingRequestsCalendarImproved = forwardRef<BookingRequestsCalendarRef, BookingRequestsCalendarImprovedProps>(({ 
   trainers, 
   services = [],
-  onRequestClick 
-}) => {
+  onRequestClick,
+  refreshTrigger = 0
+}, ref) => {
   const { toast } = useToast();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [calendarData, setCalendarData] = useState<BookingRequest[]>([]);
   const [loading, setLoading] = useState(false);
   const [serviceColorMap, setServiceColorMap] = useState<Map<number | string, typeof SERVICE_COLORS[0]>>(new Map());
+  
+  // Expose refresh method through ref
+  useImperativeHandle(ref, () => ({
+    refresh: () => fetchCalendarData(currentDate)
+  }));
   
   // Generate 7 days for tab navigation starting from current selected date
   const days = Array.from({ length: 7 }, (_, i) => addDays(startOfDay(currentDate), i - 3)); // Show 3 days before and 3 after
@@ -116,17 +121,59 @@ const BookingRequestsCalendarImproved: React.FC<BookingRequestsCalendarImprovedP
     setLoading(true);
     try {
       const formattedDate = format(date, 'yyyy-MM-dd');
-      const response = await bookingRequestsApi.getCalendar(formattedDate);
+      
+      // Fetch all appointment requests
+      const response = await appointmentRequestsApi.getAll();
       
       // Handle response format
-      let data = [];
+      let allRequests: AppointmentRequest[] = [];
       if (Array.isArray(response)) {
-        data = response;
+        allRequests = response;
       } else if (response?.data && Array.isArray(response.data)) {
-        data = response.data;
+        allRequests = response.data;
       }
       
-      setCalendarData(data);
+      // Filter for appointments that match the selected date
+      const relevantRequests = allRequests.filter(request => {
+        // Only show confirmed and completed appointments in calendar
+        if (!['confirmed', 'completed'].includes(request.status)) return false;
+        
+        // Check if the confirmed date matches the selected date
+        if (request.confirmed_date) {
+          const confirmedDate = format(new Date(request.confirmed_date), 'yyyy-MM-dd');
+          return confirmedDate === formattedDate;
+        }
+        
+        return false;
+      });
+      
+      // Transform appointment requests to calendar format
+      const calendarData: BookingRequest[] = relevantRequests.map(request => ({
+        ...request,
+        trainer_id: request.instructor_id,
+        trainer_name: trainers.find(t => t.id === request.instructor_id)?.name || 'Unknown',
+        service_name: request.service_type?.toUpperCase() || 'EMS',
+        type: request.service_type as 'ems' | 'pt',
+        preferred_time: request.confirmed_time || '09:00',
+        start_time: request.confirmed_time || '09:00',
+        end_time: undefined, // Will be calculated if needed
+        preferred_date: request.confirmed_date || '',
+      }));
+      
+      console.log(`📅 Calendar data for ${formattedDate}:`, {
+        totalRequests: allRequests.length,
+        relevantRequests: relevantRequests.length,
+        calendarData: calendarData.length,
+        requests: calendarData.map(req => ({
+          id: req.id,
+          customer: req.customer_name || req.client_name,
+          time: req.confirmed_time,
+          trainer: req.trainer_name,
+          status: req.status
+        }))
+      });
+      
+      setCalendarData(calendarData);
     } catch (error) {
       console.error('Error fetching calendar data:', error);
       toast({
@@ -140,19 +187,32 @@ const BookingRequestsCalendarImproved: React.FC<BookingRequestsCalendarImprovedP
     }
   };
 
-  // Fetch data when date changes
+  // Fetch data when date, trainers, or refreshTrigger change
   useEffect(() => {
-    fetchCalendarData(currentDate);
-  }, [currentDate]);
+    if (trainers.length > 0) {
+      fetchCalendarData(currentDate);
+    }
+  }, [currentDate, trainers, refreshTrigger]);
 
-  // Get color based on service
+  // Get color based on service and status
   const getRequestColor = (request: BookingRequest) => {
     // Try to find color by service_id, service_name, type, or service_type
-    const color = serviceColorMap.get(request.service_id || '') ||
-                  serviceColorMap.get(request.service_name?.toLowerCase() || '') ||
-                  serviceColorMap.get(request.type) ||
-                  serviceColorMap.get(request.service_type || '') ||
-                  SERVICE_COLORS[0]; // Default to first color
+    let color = serviceColorMap.get(request.service_id || '') ||
+                serviceColorMap.get(request.service_name?.toLowerCase() || '') ||
+                serviceColorMap.get(request.type) ||
+                serviceColorMap.get(request.service_type || '') ||
+                SERVICE_COLORS[0]; // Default to first color
+    
+    // Modify colors based on status
+    if (request.status === 'completed') {
+      // Use a more subdued/muted version for completed appointments
+      color = {
+        ...color,
+        bg: color.bg.replace('300', '200'), // Lighter background
+        hover: color.hover.replace('400', '300'),
+        border: color.border.replace('400', '300')
+      };
+    }
     
     return `${color.bg} ${color.hover} ${color.border}`;
   };
@@ -174,6 +234,8 @@ const BookingRequestsCalendarImproved: React.FC<BookingRequestsCalendarImprovedP
       case 'pending':
         return 'bg-yellow-100 text-yellow-800';
       case 'confirmed':
+        return 'bg-blue-100 text-blue-800';
+      case 'completed':
         return 'bg-green-100 text-green-800';
       case 'rejected':
         return 'bg-red-100 text-red-800';
@@ -188,7 +250,7 @@ const BookingRequestsCalendarImproved: React.FC<BookingRequestsCalendarImprovedP
     const timeSlots = new Set<string>();
     
     trainerRequests.forEach(request => {
-      const startTime = request.start_time || request.preferred_time;
+      const startTime = request.confirmed_time || request.start_time || request.preferred_time;
       if (startTime) {
         // Extract just hour:minute
         const [hour, minute] = startTime.split(':').slice(0, 2);
@@ -211,7 +273,7 @@ const BookingRequestsCalendarImproved: React.FC<BookingRequestsCalendarImprovedP
     return request.customer_name || 
            request.client_name || 
            request.user?.name || 
-           'Άγνωστος';
+           'Άγνωστος πελάτης';
   };
 
   // Navigate between dates
@@ -374,7 +436,7 @@ const BookingRequestsCalendarImproved: React.FC<BookingRequestsCalendarImprovedP
                         // Show trainer's specific timeslots
                         trainerSlots.map((timeSlot) => {
                           const requests = trainerRequests.filter(request => {
-                            const startTime = request.start_time || request.preferred_time;
+                            const startTime = request.confirmed_time || request.start_time || request.preferred_time;
                             if (!startTime) return false;
                             const [hour, minute] = startTime.split(':').slice(0, 2);
                             return `${hour}:${minute}` === timeSlot;
@@ -399,7 +461,7 @@ const BookingRequestsCalendarImproved: React.FC<BookingRequestsCalendarImprovedP
                                     </div>
                                     <div className={cn('text-xs flex items-center gap-1', getRequestTextColor(request))}>
                                       <Clock className="h-3 w-3" />
-                                      {request.preferred_time}
+                                      {request.confirmed_time || request.preferred_time || request.start_time}
                                       {request.end_time && ` - ${request.end_time}`}
                                     </div>
                                     {request.service_name && (
@@ -415,6 +477,7 @@ const BookingRequestsCalendarImproved: React.FC<BookingRequestsCalendarImprovedP
                                     >
                                       {request.status === 'pending' ? 'Αναμονή' :
                                        request.status === 'confirmed' ? 'Επιβεβαιωμένο' :
+                                       request.status === 'completed' ? 'Ολοκληρωμένο' :
                                        request.status === 'rejected' ? 'Απορρίφθηκε' : 
                                        request.status}
                                     </Badge>
@@ -436,6 +499,8 @@ const BookingRequestsCalendarImproved: React.FC<BookingRequestsCalendarImprovedP
       </CardContent>
     </Card>
   );
-};
+});
+
+BookingRequestsCalendarImproved.displayName = 'BookingRequestsCalendarImproved';
 
 export default BookingRequestsCalendarImproved;

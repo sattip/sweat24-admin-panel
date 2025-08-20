@@ -170,6 +170,7 @@ export default function SpecializedServicesPage() {
   const [editingService, setEditingService] = useState<SpecializedService | null>(null);
   const [selectedRequest, setSelectedRequest] = useState<AppointmentRequest | null>(null);
   const [selectedTimeSlots, setSelectedTimeSlots] = useState<string[]>([]);
+  const [calendarRefreshTrigger, setCalendarRefreshTrigger] = useState(0);
   
   // Filter states
   const [filters, setFilters] = useState<BookingRequestFilters>({});
@@ -399,6 +400,7 @@ export default function SpecializedServicesPage() {
         description: "Το αίτημα επιβεβαιώθηκε επιτυχώς",
       });
       fetchAppointmentRequests();
+      setCalendarRefreshTrigger(prev => prev + 1); // Trigger calendar refresh
       setOpenConfirmDialog(false);
       setSelectedRequest(null);
     } catch (error) {
@@ -421,6 +423,7 @@ export default function SpecializedServicesPage() {
         description: "Το αίτημα απορρίφθηκε",
       });
       fetchAppointmentRequests();
+      setCalendarRefreshTrigger(prev => prev + 1); // Trigger calendar refresh
       setOpenRejectDialog(false);
       setSelectedRequest(null);
     } catch (error) {
@@ -443,6 +446,7 @@ export default function SpecializedServicesPage() {
         description: "Το ραντεβού μαρκαρίστηκε ως ολοκληρωμένο",
       });
       fetchAppointmentRequests();
+      setCalendarRefreshTrigger(prev => prev + 1); // Trigger calendar refresh
       setOpenCompleteDialog(false);
       setSelectedRequest(null);
     } catch (error) {
@@ -823,6 +827,7 @@ export default function SpecializedServicesPage() {
                 <BookingRequestsCalendarImproved 
                   trainers={instructors}
                   services={services}
+                  refreshTrigger={calendarRefreshTrigger}
                   onRequestClick={(request) => {
                     console.log('Request clicked:', request);
                     // You can open a modal or handle the click here
