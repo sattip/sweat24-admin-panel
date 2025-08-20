@@ -6,11 +6,13 @@ import {
   Edit,
   Trash2,
   Clock,
+  MessageSquare,
 } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { Link } from "react-router-dom";
 import { buttonVariants } from "@/components/ui/button";
 import { usersApi, packagesApi } from "@/services/apiService";
+import { useChat } from "@/contexts/ChatContext";
 import type { User, Package } from "@/data/mockData";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { AdminSidebar } from "@/components/AdminSidebar";
@@ -35,6 +37,7 @@ import { NewUserModal } from "@/components/NewUserModal";
 
 export function UsersPage() {
   const { toast } = useToast();
+  const { openChatWithUser } = useChat();
   const [users, setUsers] = useState<User[]>([]);
   const [packages, setPackages] = useState<Package[]>([]);
   const [loading, setLoading] = useState(true);
@@ -188,6 +191,15 @@ export function UsersPage() {
                         </TableCell>
                         <TableCell className="text-center">{getStatusBadge(user.status)}</TableCell>
                         <TableCell className="text-right">
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            title="Συνομιλία" 
+                            onClick={() => openChatWithUser(user.id, user.name)}
+                            className="text-purple-600 hover:text-purple-700"
+                          >
+                            <MessageSquare className="h-4 w-4" />
+                          </Button>
                           <Link to={`/users/${user.id}`} className={buttonVariants({ variant: "ghost", size: "icon" })} title="Προβολή"><Eye className="h-4 w-4" /></Link>
                           <Link to={`/users/${user.id}/edit`} className={buttonVariants({ variant: "ghost", size: "icon" })} title="Επεξεργασία"><Edit className="h-4 w-4" /></Link>
                           <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" title="Διαγραφή" onClick={() => handleDeleteUser(user.id)}><Trash2 className="h-4 w-4" /></Button>

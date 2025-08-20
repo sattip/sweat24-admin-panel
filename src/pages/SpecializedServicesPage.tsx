@@ -63,6 +63,8 @@ import {
   BookingRequestFilters 
 } from "@/api/modules/specializedServices";
 import { useAuth } from '@/contexts/AuthContext';
+import { instructorsApi } from "@/services/api";
+import BookingRequestsCalendarImproved from "@/components/BookingRequestsCalendarImproved";
 
 // Διαγνωστική συνάρτηση για έλεγχο authentication
 const AuthDiagnostics: React.FC = () => {
@@ -158,6 +160,7 @@ export default function SpecializedServicesPage() {
   const [services, setServices] = useState<SpecializedService[]>([]);
   const [appointmentRequests, setAppointmentRequests] = useState<AppointmentRequest[]>([]);
   const [filteredRequests, setFilteredRequests] = useState<AppointmentRequest[]>([]);
+  const [instructors, setInstructors] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [openDialog, setOpenDialog] = useState(false);
   const [openViewDialog, setOpenViewDialog] = useState(false);
@@ -197,6 +200,7 @@ export default function SpecializedServicesPage() {
   useEffect(() => {
     fetchServices();
     fetchAppointmentRequests();
+    fetchInstructors();
   }, []);
 
   useEffect(() => {
@@ -216,6 +220,18 @@ export default function SpecializedServicesPage() {
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchInstructors = async () => {
+    try {
+      const response = await instructorsApi.getAll();
+      // Handle both wrapped and unwrapped responses
+      const instructorsData = Array.isArray(response) ? response : (response.data || []);
+      setInstructors(instructorsData);
+    } catch (error) {
+      console.error('Error fetching instructors:', error);
+      // Don't show error toast as this is not critical
     }
   };
 
@@ -803,6 +819,16 @@ export default function SpecializedServicesPage() {
               </TabsContent>
 
               <TabsContent value="requests" className="space-y-4">
+                {/* Visual Calendar */}
+                <BookingRequestsCalendarImproved 
+                  trainers={instructors}
+                  services={services}
+                  onRequestClick={(request) => {
+                    console.log('Request clicked:', request);
+                    // You can open a modal or handle the click here
+                  }}
+                />
+
                 {/* Filters Section */}
                 <Card>
                   <CardHeader>
@@ -1144,14 +1170,22 @@ export default function SpecializedServicesPage() {
                     />
                   </div>
                   <div>
-                    <Label htmlFor="instructor_id">Προπονητής (προαιρετικό)</Label>
-                    <Input
-                      id="instructor_id"
-                      type="number"
-                      placeholder="ID προπονητή"
-                      value={confirmData.instructor_id || ''}
-                      onChange={(e) => setConfirmData({...confirmData, instructor_id: e.target.value ? parseInt(e.target.value) : undefined})}
-                    />
+                    <Label htmlFor="instructor_id">Προπονητής *</Label>
+                    <Select 
+                      value={confirmData.instructor_id?.toString() || ''} 
+                      onValueChange={(value) => setConfirmData({...confirmData, instructor_id: value ? parseInt(value) : undefined})}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Επιλέξτε προπονητή" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {instructors.map((instructor) => (
+                          <SelectItem key={instructor.id} value={instructor.id.toString()}>
+                            {instructor.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                   <div>
                     <Label htmlFor="confirm_notes">Σημειώσεις Admin (προαιρετικό)</Label>
@@ -1169,7 +1203,7 @@ export default function SpecializedServicesPage() {
                   </Button>
                   <Button 
                     onClick={handleConfirmSubmit}
-                    disabled={!confirmData.confirmed_date || !confirmData.confirmed_time}
+                    disabled={!confirmData.confirmed_date || !confirmData.confirmed_time || !confirmData.instructor_id}
                   >
                     Οριστικοποίηση
                   </Button>

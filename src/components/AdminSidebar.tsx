@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
+import { useChat } from "@/contexts/ChatContext";
 import {
   Grid2X2,
   Users,
@@ -21,7 +22,9 @@ import {
   Gift,
   Building2,
   CalendarDays,
+  MessageSquare,
 } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 
 import {
   Sidebar,
@@ -73,6 +76,7 @@ export function AdminSidebar() {
   const { state, open } = useSidebar();
   const location = useLocation();
   const { user } = useAuth();
+  const { totalUnreadCount } = useChat();
   const currentPath = location.pathname;
   const collapsed = state === "collapsed";
   
@@ -128,12 +132,32 @@ export function AdminSidebar() {
                     title={collapsed ? item.title : undefined}
                     data-oid="f84d6vc"
                   >
-                    <item.icon
-                      className="h-5 w-5 flex-shrink-0"
-                      data-oid="i6hs.:_"
-                    />
+                    <div className="relative">
+                      <item.icon
+                        className="h-5 w-5 flex-shrink-0"
+                        data-oid="i6hs.:_"
+                      />
+                      {item.isMessages && totalUnreadCount > 0 && (
+                        <Badge 
+                          className="absolute -top-2 -right-2 h-5 w-5 rounded-full p-0 flex items-center justify-center bg-red-500 text-white text-[10px] font-bold"
+                        >
+                          {totalUnreadCount > 99 ? '99+' : totalUnreadCount}
+                        </Badge>
+                      )}
+                    </div>
 
-                    {!collapsed && <span data-oid="4cnju1i">{item.title}</span>}
+                    {!collapsed && (
+                      <div className="flex items-center gap-2 flex-1">
+                        <span data-oid="4cnju1i">{item.title}</span>
+                        {item.isMessages && totalUnreadCount > 0 && (
+                          <Badge 
+                            className="ml-auto bg-red-500 text-white text-xs px-2 py-0"
+                          >
+                            {totalUnreadCount > 99 ? '99+' : totalUnreadCount}
+                          </Badge>
+                        )}
+                      </div>
+                    )}
                   </NavLink>
                 </SidebarMenuItem>
               ))}

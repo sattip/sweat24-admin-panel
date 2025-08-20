@@ -245,6 +245,67 @@ export const instructorsApi = {
   },
 };
 
+// Body Measurements API
+export const measurementsApi = {
+  getUserMeasurements: async (userId: string): Promise<Array<{
+    id: number;
+    date: string;
+    weight: string;
+    height: string;
+    waist: string;
+    hips: string;
+    chest: string;
+    arm: string;
+    thigh: string;
+    bodyFat: string;
+    notes: string;
+    bmi: string;
+  }>> => {
+    return apiRequest(`/api/v1/admin/users/${userId}/measurements`);
+  },
+
+  getLatestMeasurement: async (userId: string): Promise<{
+    id: number;
+    date: string;
+    weight: string;
+    height: string;
+    waist: string;
+    hips: string;
+    chest: string;
+    arm: string;
+    thigh: string;
+    bodyFat: string;
+    notes: string;
+    bmi: string;
+  } | null> => {
+    try {
+      return await apiRequest(`/api/v1/admin/users/${userId}/measurements/latest`);
+    } catch (error) {
+      // If no measurements, return null
+      return null;
+    }
+  },
+};
+
+// Progress Photos API
+export const progressPhotosApi = {
+  // Admin endpoints
+  getUserPhotos: async (userId: string): Promise<Array<{
+    id: number;
+    imageUrl: string;
+    date: string;
+    caption: string | null;
+  }>> => {
+    return apiRequest(`/api/v1/admin/users/${userId}/progress-photos`);
+  },
+
+  deletePhoto: async (photoId: number): Promise<{ message: string }> => {
+    return apiRequest(`/api/v1/admin/progress-photos/${photoId}`, {
+      method: 'DELETE',
+    });
+  },
+};
+
 // Classes API
 export const classesApi = {
   getAll: async (params?: { date?: string; instructor?: string }): Promise<GymClass[]> => {
@@ -494,10 +555,16 @@ export const bookingRequestsApi = {
     return apiRequest('/api/v1/admin/booking-requests');
   },
 
-  confirm: async (id: string, data: { date: string; time: string; instructor_id?: string }): Promise<{ message: string; booking?: any }> => {
+  confirm: async (id: string, data: { date: string; time: string; instructor_id?: number }): Promise<{ message: string; booking?: any }> => {
+    // Backend expects confirmed_date and confirmed_time
+    const payload = {
+      confirmed_date: data.date,
+      confirmed_time: data.time,
+      instructor_id: data.instructor_id
+    };
     return apiRequest(`/api/v1/admin/booking-requests/${id}/confirm`, {
       method: 'POST',
-      body: JSON.stringify(data)
+      body: JSON.stringify(payload)
     });
   },
 
@@ -506,6 +573,10 @@ export const bookingRequestsApi = {
       method: 'POST',
       body: JSON.stringify(data)
     });
+  },
+
+  getCalendar: async (date: string): Promise<any[]> => {
+    return apiRequest(`/api/v1/admin/booking-requests-calendar?date=${date}`);
   }
 };
 
@@ -537,6 +608,20 @@ export const chatApi = {
       method: 'PUT',
       body: JSON.stringify({ status })
     });
+  },
+
+  startConversation: async (userId: number, message: string) => {
+    return apiRequest('/admin/chat/conversations', {
+      method: 'POST',
+      body: JSON.stringify({ 
+        user_id: userId,
+        initial_message: message 
+      })
+    });
+  },
+
+  getAllUsers: async () => {
+    return apiRequest('/admin/chat/users');
   }
 };
 

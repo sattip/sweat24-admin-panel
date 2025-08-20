@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { ChatProvider } from "@/contexts/ChatContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { LoginPage } from "@/pages/LoginPage";
 import Index from "./pages/Index";
@@ -25,6 +26,7 @@ import ExpensesPage from "./pages/ExpensesPage";
 import ReportsPage from "./pages/ReportsPage";
 import CancellationPoliciesPage from "./pages/CancellationPoliciesPage";
 import { NotificationsPage } from "./pages/NotificationsPage";
+import { MessagesPage } from "./pages/MessagesPage";
 import { AdminChatWidget } from "./components/AdminChatWidget";
 import SpecializedServicesPage from "./pages/SpecializedServicesPage";
 import ReferralProgramPage from "./pages/ReferralProgramPage";
@@ -36,10 +38,11 @@ const queryClient = new QueryClient();
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <AuthProvider>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
+      <ChatProvider>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          <BrowserRouter>
           <Routes>
             {/* Public route */}
             <Route path="/login" element={<LoginPage />} />
@@ -190,6 +193,14 @@ const App = () => (
               }
             />
             <Route
+              path="/messages"
+              element={
+                <ProtectedRoute>
+                  <MessagesPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
               path="/specialized-services"
               element={
                 <ProtectedRoute>
@@ -228,6 +239,7 @@ const App = () => (
           <AdminChatWidget />
         </BrowserRouter>
       </TooltipProvider>
+      </ChatProvider>
     </AuthProvider>
   </QueryClientProvider>
 );
